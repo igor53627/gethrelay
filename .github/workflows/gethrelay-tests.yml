@@ -448,21 +448,71 @@ jobs:
       - name: Upload test results
         uses: actions/upload-artifact@v4
         if: always()
+        working-directory: /tmp/hive
         with:
           name: hive-test-results
-          path: /tmp/hive/test-results
+          path: |
+            **/test-results*/
+            **/*.log
           retention-days: 7
+          if-no-files-found: warn
 
       - name: Test summary
         if: always()
+        working-directory: /tmp/hive
         run: |
           echo "## Hive Test Results" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Find all test result directories
+          echo "=== Searching for test results ==="
+          find . -type d -name "test-results*" 2>/dev/null | head -10
+          find . -name "simulator.log" 2>/dev/null | head -10
+          echo ""
+          
+          # Check RPC test results
           echo "### RPC Tests" >> $GITHUB_STEP_SUMMARY
-          grep -c "pass=true" /tmp/hive/test-results/*/simulator.log || echo "No results found" >> $GITHUB_STEP_SUMMARY
+          RPC_RESULTS=$(find . -path "*/test-results*/*/simulator.log" -o -path "*/test-results-rpc*/*/simulator.log" 2>/dev/null | head -1)
+          if [ -n "$RPC_RESULTS" ] && [ -f "$RPC_RESULTS" ]; then
+            echo "Found RPC results at: $RPC_RESULTS" >> $GITHUB_STEP_SUMMARY
+            PASSED=$(grep -c "pass=true" "$RPC_RESULTS" 2>/dev/null || echo "0")
+            FAILED=$(grep -c "pass=false" "$RPC_RESULTS" 2>/dev/null || echo "0")
+            echo "- Passed: $PASSED" >> $GITHUB_STEP_SUMMARY
+            echo "- Failed: $FAILED" >> $GITHUB_STEP_SUMMARY
+            if [ "$PASSED" -gt 0 ] || [ "$FAILED" -gt 0 ]; then
+              echo "✅ Tests completed" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "⚠️ No test results found in log" >> $GITHUB_STEP_SUMMARY
+            fi
+          else
+            echo "❌ No RPC test results found" >> $GITHUB_STEP_SUMMARY
+          fi
           echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Check devp2p test results
           echo "### devp2p Tests" >> $GITHUB_STEP_SUMMARY
-          grep -c "pass=true" /tmp/hive/test-results/*/simulator.log || echo "No results found" >> $GITHUB_STEP_SUMMARY
+          DEVP2P_RESULTS=$(find . -path "*/test-results*/*/simulator.log" -o -path "*/test-results-devp2p*/*/simulator.log" 2>/dev/null | head -1)
+          if [ -n "$DEVP2P_RESULTS" ] && [ -f "$DEVP2P_RESULTS" ]; then
+            echo "Found devp2p results at: $DEVP2P_RESULTS" >> $GITHUB_STEP_SUMMARY
+            PASSED=$(grep -c "pass=true" "$DEVP2P_RESULTS" 2>/dev/null || echo "0")
+            FAILED=$(grep -c "pass=false" "$DEVP2P_RESULTS" 2>/dev/null || echo "0")
+            echo "- Passed: $PASSED" >> $GITHUB_STEP_SUMMARY
+            echo "- Failed: $FAILED" >> $GITHUB_STEP_SUMMARY
+            if [ "$PASSED" -gt 0 ] || [ "$FAILED" -gt 0 ]; then
+              echo "✅ Tests completed" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "⚠️ No test results found in log" >> $GITHUB_STEP_SUMMARY
+            fi
+          else
+            echo "❌ No devp2p test results found" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Show any available log files
+          echo "### Available Log Files" >> $GITHUB_STEP_SUMMARY
+          find . -name "*.log" -type f 2>/dev/null | head -10 | while read logfile; do
+            echo "- \`$logfile\`" >> $GITHUB_STEP_SUMMARY
+          done || echo "No log files found" >> $GITHUB_STEP_SUMMARY
 
   notify-success:
     name: Notify Success
