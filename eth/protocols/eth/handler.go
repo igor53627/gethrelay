@@ -55,6 +55,12 @@ const (
 // exchanges have passed.
 type Handler func(peer *Peer) error
 
+// RelayBackendInterface is an optional interface that relay backends can implement.
+// It allows handlers to detect relay mode and proxy requests.
+type RelayBackendInterface interface {
+	IsRelay() bool
+}
+
 // Backend defines the data retrieval methods to serve remote requests and the
 // callback methods to invoke on remote deliveries.
 type Backend interface {
@@ -137,6 +143,15 @@ type NodeInfo struct {
 
 // nodeInfo retrieves some `eth` protocol metadata about the running host node.
 func nodeInfo(chain *core.BlockChain, network uint64) *NodeInfo {
+	if chain == nil {
+		// Relay mode - return minimal info
+		return &NodeInfo{
+			Network: network,
+			Genesis: common.Hash{},
+			Config:  nil,
+			Head:    common.Hash{},
+		}
+	}
 	head := chain.CurrentBlock()
 	hash := head.Hash()
 
@@ -147,6 +162,7 @@ func nodeInfo(chain *core.BlockChain, network uint64) *NodeInfo {
 		Head:    hash,
 	}
 }
+
 
 // Handle is invoked whenever an `eth` connection is made that successfully passes
 // the protocol handshake. This method will keep processing messages until the

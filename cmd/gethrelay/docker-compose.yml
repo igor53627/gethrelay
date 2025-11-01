@@ -1,0 +1,55 @@
+version: '3.8'
+
+services:
+  gethrelay:
+    build:
+      context: ../..
+      dockerfile: cmd/gethrelay/Dockerfile.gethrelay
+      args:
+        GO_VERSION: "1.24"
+        COMMIT: "${GIT_COMMIT:-}"
+        VERSION: "${VERSION:-}"
+        BUILDNUM: "${BUILDNUM:-}"
+    image: ethereum/gethrelay:latest
+    container_name: gethrelay
+    ports:
+      - "8545:8545"
+      - "30303:30303"
+      - "30303:30303/udp"
+    environment:
+      - HIVE_NETWORK_ID=${HIVE_NETWORK_ID:-1}
+      - HIVE_CHAIN_ID=${HIVE_CHAIN_ID:-1}
+      - HIVE_UPSTREAM_RPC=${HIVE_UPSTREAM_RPC:-https://ethereum-rpc.publicnode.com}
+    command:
+      - --chain
+      - mainnet
+      - --rpc.upstream
+      - ${HIVE_UPSTREAM_RPC:-https://ethereum-rpc.publicnode.com}
+      - --nodiscover
+    networks:
+      - hive-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8545"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  # Hive test runner (optional, for local testing)
+  hive-runner:
+    image: ethereum/hive:latest
+    container_name: hive-runner
+    volumes:
+      - ./test-results:/workspace/logs
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - hive-network
+    depends_on:
+      - gethrelay
+    profiles:
+      - testing
+
+networks:
+  hive-network:
+    driver: bridge
+

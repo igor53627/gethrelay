@@ -1,0 +1,54 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Documentation
+*.md
+!README.md
+
+# Test files
+*_test.go
+testdata/
+test-results/
+
+# CI/CD
+.github/
+.gitea/
+.gitlab-ci.yml
+appveyor.yml
+circle.yml
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Build artifacts
+build/
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.bak
+.DS_Store
+
+# Exclude other commands (keep only what's needed)
+# Note: cmd/devp2p is kept for Hive testing
+# Only gethrelay is needed
+cmd/gethrelay/protocols.go
+cmd/gethrelay/rpc_test.go
+cmd/gethrelay/test-hive.sh
+
+# Hive test artifacts
+/tmp/hive*
+workspace/
+

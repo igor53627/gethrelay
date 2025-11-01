@@ -44,6 +44,33 @@ clean:
 # The devtools target installs tools required for 'go generate'.
 # You need to put $GOBIN (or $GOPATH/bin) in your PATH to use 'go generate'.
 
+#? gethrelay: Build gethrelay.
+gethrelay:
+	$(GORUN) build/ci.go install ./cmd/gethrelay
+	@echo "Done building."
+	@echo "Run \"$(GOBIN)/gethrelay\" to launch gethrelay."
+
+#? gethrelay-docker: Build gethrelay Docker image.
+gethrelay-docker:
+	docker build -f cmd/gethrelay/Dockerfile.gethrelay \
+		--build-arg GO_VERSION=1.24 \
+		--build-arg COMMIT=$(shell git rev-parse HEAD 2>/dev/null || echo "") \
+		--build-arg VERSION=$(shell git describe --tags 2>/dev/null || echo "dev") \
+		-t ethereum/gethrelay:latest \
+		.
+
+#? gethrelay-test: Run gethrelay unit tests.
+gethrelay-test:
+	cd cmd/gethrelay && go test -v -race -cover .
+
+#? gethrelay-hive: Run Hive integration tests for gethrelay.
+gethrelay-hive:
+	@if ! command -v hive >/dev/null 2>&1; then \
+		echo "Hive not found. Install with: git clone https://github.com/ethereum/hive && cd hive && go build ."; \
+		exit 1; \
+	fi
+	@bash cmd/gethrelay/test-hive.sh
+
 #? devtools: Install recommended developer tools.
 devtools:
 	env GOBIN= go install golang.org/x/tools/cmd/stringer@latest

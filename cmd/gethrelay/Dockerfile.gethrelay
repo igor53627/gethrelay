@@ -1,0 +1,46 @@
+# Optimized Dockerfile for gethrelay with layer caching
+ARG GO_VERSION=1.24
+ARG ALPINE_VERSION=latest
+ARG COMMIT=""
+ARG VERSION=""
+ARG BUILDNUM=""
+
+# Stage 1: Base dependencies (most stable layer)
+FROM golang:${GO_VERSION}-alpine AS base
+RUN apk add --no-cache gcc musl-dev linux-headers git make
+WORKDIR /go-ethereum
+
+# Stage 2: Dependencies (cached if go.mod/go.sum unchanged)
+FROM base AS deps
+# Copy dependency files first for better caching
+COPY go.mod go.sum ./
+RUN go mod download && \
+    go mod verify && \
+    go mod graph | grep -v '@' | awk '{print $$2}' | sort -u > /tmp/deps.txt
+
+# Stage 3: Builder (cached if source unchanged)
+FROM deps AS builder
+WORKDIR /go-ethereum
+
+# Copy source code
+COPY . .
+
+# Build with static linking
+RUN go run build/ci.go install -static ./cmd/gethrelay
+
+# Stage 4: Runtime (minimal image)
+FROM alpine:${ALPINE_VERSION}
+LABEL maintainer="go-ethereum"
+LABEL commit="$COMMIT" version="$VERSION" buildnum="$BUILDNUM"
+
+RUN apk add --no-cache ca-certificates tzdata && \
+    addgroup -g 1000 -S gethrelay && \
+    adduser -u 1000 -S gethrelay -G gethrelay
+
+COPY --from=builder /go-ethereum/build/bin/gethrelay /usr/local/bin/gethrelay
+RUN chmod +x /usr/local/bin/gethrelay
+
+USER gethrelay
+EXPOSE 8545 30303 30303/udp
+
+ENTRYPOINT ["gethrelay"]

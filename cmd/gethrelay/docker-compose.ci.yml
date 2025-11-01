@@ -1,0 +1,32 @@
+version: '3.8'
+
+# Lightweight docker-compose for CI testing
+services:
+  gethrelay:
+    build:
+      context: ../..
+      dockerfile: cmd/gethrelay/Dockerfile.gethrelay
+      args:
+        GO_VERSION: "${GO_VERSION:-1.24}"
+        COMMIT: "${GIT_COMMIT:-}"
+        VERSION: "${VERSION:-dev}"
+    image: ethereum/gethrelay:ci
+    container_name: gethrelay-ci
+    environment:
+      - HIVE_NETWORK_ID=1
+      - HIVE_CHAIN_ID=1
+    command:
+      - --chain
+      - mainnet
+      - --rpc.upstream
+      - https://ethereum-rpc.publicnode.com
+      - --nodiscover
+      - --verbosity
+      - "3"
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost 8545 || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+

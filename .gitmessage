@@ -1,0 +1,23 @@
+Initial commit: gethrelay - Ethereum P2P Relay Node with JSON-RPC Proxy
+
+This is a focused fork of go-ethereum optimized for relay node functionality.
+
+Features:
+- Lightweight P2P relay node without blockchain state storage
+- JSON-RPC proxy with local eth_sendRawTransaction handling
+- Upstream request proxying for all other RPC methods
+- Docker support with optimized multi-stage builds
+- GitHub Actions CI/CD with Hive integration tests
+- Comprehensive test coverage (unit + integration)
+
+Changes from upstream:
+- Removed unused command binaries (geth, clef, evm, etc.)
+- Added gethrelay implementation (P2P relay + RPC proxy)
+- Added Docker Compose configurations
+- Added GitHub Actions workflow
+- Updated documentation for gethrelay
+- Codebase cleanup and optimization
+
+Package size: ~351K LOC
+gethrelay: ~1.1K LOC (863 source + 240 tests)
+

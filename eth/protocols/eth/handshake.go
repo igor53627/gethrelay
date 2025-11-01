@@ -26,6 +26,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/forkid"
 	"github.com/ethereum/go-ethereum/metrics"
 	"github.com/ethereum/go-ethereum/p2p"
+	"github.com/ethereum/go-ethereum/params"
 )
 
 const (
@@ -209,12 +210,93 @@ func markError(p *Peer, err error) {
 }
 
 // Validate checks basic validity of a block range announcement.
+// For relay nodes that don't track blocks, we allow zero hash if block is also zero.
 func (p *BlockRangeUpdatePacket) Validate() error {
 	if p.EarliestBlock > p.LatestBlock {
 		return errors.New("earliest > latest")
 	}
-	if p.LatestBlockHash == (common.Hash{}) {
+	// Allow zero hash only if both latest block and hash are zero (relay mode without block tracking)
+	if p.LatestBlockHash == (common.Hash{}) && p.LatestBlock != 0 {
 		return errors.New("zero latest hash")
 	}
 	return nil
+}
+
+// RelayHandshake executes the eth protocol handshake for relay mode (without blockchain).
+func (p *Peer) RelayHandshake(networkID uint64, genesisHash common.Hash, chainConfig *params.ChainConfig, forkID forkid.ID, rangeMsg BlockRangeUpdatePacket) error {
+	switch p.version {
+	case ETH69:
+		return p.relayHandshake69(networkID, genesisHash, chainConfig, forkID, rangeMsg)
+	case ETH68:
+		return p.relayHandshake68(networkID, genesisHash, chainConfig, forkID)
+	default:
+		return errors.New("unsupported protocol version")
+	}
+}
+
+func (p *Peer) relayHandshake68(networkID uint64, genesisHash common.Hash, chainConfig *params.ChainConfig, forkID forkid.ID) error {
+	// Create a simple fork filter that accepts compatible forks
+	// For relay mode, we're more lenient - just check fork hash matches or is compatible
+	forkFilter := func(id forkid.ID) error {
+		// Accept if fork hash matches exactly
+		if id.Hash == forkID.Hash {
+			return nil
+		}
+		// Accept if remote has same or later fork state
+		if id.Next == 0 || forkID.Next == 0 || id.Next >= forkID.Next {
+			return nil
+		}
+		return fmt.Errorf("%w: %x", errForkIDRejected, id.Hash)
+	}
+
+	errc := make(chan error, 2)
+	go func() {
+		pkt := &StatusPacket68{
+			ProtocolVersion: uint32(p.version),
+			NetworkID:       networkID,
+			Head:            common.Hash{}, // Relay doesn't track head
+			Genesis:     genesisHash,
+			ForkID:          forkID,
+		}
+		errc <- p2p.Send(p.rw, StatusMsg, pkt)
+	}()
+	var status StatusPacket68
+	go func() {
+		errc <- p.readStatus68(networkID, &status, genesisHash, forkFilter)
+	}()
+
+	return waitForHandshake(errc, p)
+}
+
+func (p *Peer) relayHandshake69(networkID uint64, genesisHash common.Hash, chainConfig *params.ChainConfig, forkID forkid.ID, rangeMsg BlockRangeUpdatePacket) error {
+	// Create a simple fork filter for relay mode
+	forkFilter := func(id forkid.ID) error {
+		if id.Hash == forkID.Hash {
+			return nil
+		}
+		if id.Next == 0 || forkID.Next == 0 || id.Next >= forkID.Next {
+			return nil
+		}
+		return fmt.Errorf("%w: %x", errForkIDRejected, id.Hash)
+	}
+
+	errc := make(chan error, 2)
+	go func() {
+		pkt := &StatusPacket69{
+			ProtocolVersion: uint32(p.version),
+			NetworkID:       networkID,
+			Genesis:         genesisHash,
+			ForkID:          forkID,
+			EarliestBlock:   rangeMsg.EarliestBlock,
+			LatestBlock:     rangeMsg.LatestBlock,
+			LatestBlockHash: rangeMsg.LatestBlockHash,
+		}
+		errc <- p2p.Send(p.rw, StatusMsg, pkt)
+	}()
+	var status StatusPacket69
+	go func() {
+		errc <- p.readStatus69(networkID, &status, genesisHash, forkFilter)
+	}()
+
+	return waitForHandshake(errc, p)
 }

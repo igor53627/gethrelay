@@ -40,7 +40,19 @@ func handleGetBlockHeaders(backend Backend, msg Decoder, peer *Peer) error {
 	if err := msg.Decode(&query); err != nil {
 		return err
 	}
-	response := ServiceGetBlockHeadersQuery(backend.Chain(), query.GetBlockHeadersRequest, peer)
+	
+	// Check if this is a relay backend (no chain)
+	chain := backend.Chain()
+	if chain == nil {
+		// Relay mode: request should be proxied, not answered locally
+		// For now, return empty response - the relay infrastructure should
+		// intercept and proxy these requests before they reach here.
+		// This is a safety check to prevent nil pointer panics.
+		log.Debug("Relay mode: GetBlockHeaders request received but cannot be handled locally", "peer", peer.id, "requestId", query.RequestId)
+		return peer.ReplyBlockHeadersRLP(query.RequestId, nil)
+	}
+	
+	response := ServiceGetBlockHeadersQuery(chain, query.GetBlockHeadersRequest, peer)
 	return peer.ReplyBlockHeadersRLP(query.RequestId, response)
 }
 
@@ -223,7 +235,16 @@ func handleGetBlockBodies(backend Backend, msg Decoder, peer *Peer) error {
 	if err := msg.Decode(&query); err != nil {
 		return err
 	}
-	response := ServiceGetBlockBodiesQuery(backend.Chain(), query.GetBlockBodiesRequest)
+	
+	// Check if this is a relay backend (no chain)
+	chain := backend.Chain()
+	if chain == nil {
+		// Relay mode: return empty response
+		log.Debug("Relay mode: GetBlockBodies request received but cannot be handled locally", "peer", peer.id, "requestId", query.RequestId)
+		return peer.ReplyBlockBodiesRLP(query.RequestId, nil)
+	}
+	
+	response := ServiceGetBlockBodiesQuery(chain, query.GetBlockBodiesRequest)
 	return peer.ReplyBlockBodiesRLP(query.RequestId, response)
 }
 
@@ -254,7 +275,16 @@ func handleGetReceipts68(backend Backend, msg Decoder, peer *Peer) error {
 	if err := msg.Decode(&query); err != nil {
 		return err
 	}
-	response := ServiceGetReceiptsQuery68(backend.Chain(), query.GetReceiptsRequest)
+	
+	// Check if this is a relay backend (no chain)
+	chain := backend.Chain()
+	if chain == nil {
+		// Relay mode: return empty response
+		log.Debug("Relay mode: GetReceipts request received but cannot be handled locally", "peer", peer.id, "requestId", query.RequestId)
+		return peer.ReplyReceiptsRLP(query.RequestId, nil)
+	}
+	
+	response := ServiceGetReceiptsQuery68(chain, query.GetReceiptsRequest)
 	return peer.ReplyReceiptsRLP(query.RequestId, response)
 }
 
@@ -264,7 +294,16 @@ func handleGetReceipts69(backend Backend, msg Decoder, peer *Peer) error {
 	if err := msg.Decode(&query); err != nil {
 		return err
 	}
-	response := serviceGetReceiptsQuery69(backend.Chain(), query.GetReceiptsRequest)
+	
+	// Check if this is a relay backend (no chain)
+	chain := backend.Chain()
+	if chain == nil {
+		// Relay mode: return empty response
+		log.Debug("Relay mode: GetReceipts request received but cannot be handled locally", "peer", peer.id, "requestId", query.RequestId)
+		return peer.ReplyReceiptsRLP(query.RequestId, nil)
+	}
+	
+	response := serviceGetReceiptsQuery69(chain, query.GetReceiptsRequest)
 	return peer.ReplyReceiptsRLP(query.RequestId, response)
 }
 
@@ -457,6 +496,15 @@ func handleGetPooledTransactions(backend Backend, msg Decoder, peer *Peer) error
 	if err := msg.Decode(&query); err != nil {
 		return err
 	}
+	
+	// Check if this is a relay backend (no txpool)
+	txPool := backend.TxPool()
+	if txPool == nil {
+		// Relay mode: return empty response
+		log.Debug("Relay mode: GetPooledTransactions request received but cannot be handled locally", "peer", peer.id, "requestId", query.RequestId)
+		return peer.ReplyPooledTransactionsRLP(query.RequestId, nil, nil)
+	}
+	
 	hashes, txs := answerGetPooledTransactions(backend, query.GetPooledTransactionsRequest)
 	return peer.ReplyPooledTransactionsRLP(query.RequestId, hashes, txs)
 }
