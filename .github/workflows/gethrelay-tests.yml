@@ -201,16 +201,6 @@ jobs:
             - "rpc"
           EOF
           
-          # Create Dockerfile.local that uses our image
-          cat > /tmp/hive/clients/gethrelay/Dockerfile.local << 'EOF'
-          FROM ethereum/gethrelay:latest
-          RUN apk add --update bash curl jq
-          COPY gethrelay.sh /gethrelay.sh
-          RUN chmod +x /gethrelay.sh
-          EXPOSE 8545 30303 30303/udp
-          ENTRYPOINT ["/gethrelay.sh"]
-          EOF
-          
           # Copy/create startup script if geth.sh exists
           if [ -f /tmp/hive/clients/gethrelay/geth.sh ]; then
             cp /tmp/hive/clients/gethrelay/geth.sh /tmp/hive/clients/gethrelay/gethrelay.sh
@@ -223,16 +213,27 @@ jobs:
             chmod +x /tmp/hive/clients/gethrelay/gethrelay.sh
           fi
           
+          # Create Dockerfile.local that uses our image
+          # Build context will be /tmp/hive/clients/gethrelay
+          cat > /tmp/hive/clients/gethrelay/Dockerfile.local << 'EOF'
+          FROM ethereum/gethrelay:latest
+          RUN apk add --update bash curl jq
+          COPY gethrelay.sh /gethrelay.sh
+          RUN chmod +x /gethrelay.sh
+          EXPOSE 8545 30303 30303/udp
+          ENTRYPOINT ["/gethrelay.sh"]
+          EOF
+          
           # Verify client directory structure
           echo "Client directory contents:"
           ls -la /tmp/hive/clients/gethrelay/
           
       - name: Build Hive client image
-        working-directory: /tmp/hive
         run: |
-          # Build the client image using Hive's build system
+          # Build the client image from the client directory (build context)
           echo "Building gethrelay client image for Hive..."
-          docker build -f clients/gethrelay/Dockerfile.local -t hive/clients/gethrelay:local .
+          cd /tmp/hive/clients/gethrelay
+          docker build -f Dockerfile.local -t hive/clients/gethrelay:local .
           
       - name: Verify Hive client image
         run: |
