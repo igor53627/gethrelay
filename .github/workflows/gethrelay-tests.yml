@@ -244,13 +244,20 @@ jobs:
           docker images | grep gethrelay
           docker inspect hive/clients/gethrelay:local || echo "Image not found, will use ethereum/gethrelay:latest"
 
+      - name: Verify client discovery
+        working-directory: /tmp/hive
+        run: |
+          echo "Checking client directory structure..."
+          ls -la clients/gethrelay/
+          echo ""
+          echo "Listing available clients..."
+          ls -d clients/*/
+
       - name: Run RPC tests
         working-directory: /tmp/hive
         run: |
           hive --sim=ethereum/rpc \
-               --client=go-ethereum:local \
-               --client-override=gethrelay:local=hive/clients/gethrelay:local \
-               --clients=gethrelay:local \
+               --client=gethrelay:local \
                --loglevel=3 \
                --sim.timelimit=15m \
                --results-root=./test-results
@@ -260,9 +267,7 @@ jobs:
         working-directory: /tmp/hive
         run: |
           hive --sim=devp2p \
-               --client=go-ethereum:local \
-               --client-override=gethrelay:local=hive/clients/gethrelay:local \
-               --clients=gethrelay:local \
+               --client=gethrelay:local \
                --loglevel=3 \
                --sim.timelimit=15m \
                --results-root=./test-results
