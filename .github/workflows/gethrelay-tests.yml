@@ -190,7 +190,7 @@ jobs:
       - name: Setup Hive client configuration
         run: |
           mkdir -p /tmp/hive/clients/gethrelay
-          # Copy base structure from go-ethereum
+          # Copy base structure from go-ethereum (this includes all necessary files)
           cp -r /tmp/hive/clients/go-ethereum/* /tmp/hive/clients/gethrelay/
           
           # Create hive.yaml (must match go-ethereum format for Hive compatibility)
@@ -198,6 +198,10 @@ jobs:
           roles:
             - "eth1"
           EOF
+          
+          # Verify we copied all necessary files
+          echo "Client files copied:"
+          ls -la /tmp/hive/clients/gethrelay/
           
           # Copy and adapt all necessary scripts from go-ethereum
           if [ -f /tmp/hive/clients/gethrelay/geth.sh ]; then
@@ -231,14 +235,19 @@ jobs:
           done
           
           # Create Dockerfile.local that uses our image
+          # Must match go-ethereum structure for Hive compatibility
           # Build context will be /tmp/hive/clients/gethrelay
           cat > /tmp/hive/clients/gethrelay/Dockerfile.local << 'EOF'
           FROM ethereum/gethrelay:latest
           # Switch to root to install packages (base image runs as non-root user)
           USER root
           RUN apk add --update --no-cache bash curl jq
+          # Copy all necessary scripts
           COPY gethrelay.sh /gethrelay.sh
-          RUN chmod +x /gethrelay.sh
+          COPY enode.sh /enode.sh
+          RUN chmod +x /gethrelay.sh /enode.sh
+          # Copy mapper.jq if it exists (used by some simulators)
+          COPY mapper.jq /mapper.jq 2>/dev/null || true
           # Switch back to gethrelay user
           USER gethrelay
           EXPOSE 8545 30303 30303/udp
