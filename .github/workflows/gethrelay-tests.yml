@@ -35,15 +35,16 @@ jobs:
         with:
           to: ${{ secrets.TELEGRAM_CHAT_ID }}
           token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          format: markdown
           message: |
             🚀 *gethrelay CI Started*
             
-            *Commit:* ${{ github.sha }}
-            *Branch:* ${{ github.ref_name }}
+            *Commit:* `${{ github.sha }}`
+            *Branch:* `${{ github.ref_name }}`
             *Author:* ${{ github.actor }}
             *Workflow:* ${{ github.workflow }}
             
-            View: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+            [View Workflow](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
   unit-tests:
     name: Unit Tests
     runs-on: ubuntu-latest
@@ -239,15 +240,16 @@ jobs:
         with:
           to: ${{ secrets.TELEGRAM_CHAT_ID }}
           token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          format: markdown
           message: |
             ✅ *gethrelay CI Passed*
             
             All tests completed successfully!
             
-            *Commit:* ${{ github.sha }}
-            *Branch:* ${{ github.ref_name }}
+            *Commit:* `${{ github.sha }}`
+            *Branch:* `${{ github.ref_name }}`
             
-            View: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+            [View Workflow](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
 
   notify-failure:
     name: Notify Failure
@@ -260,13 +262,14 @@ jobs:
         with:
           to: ${{ secrets.TELEGRAM_CHAT_ID }}
           token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          format: markdown
           message: |
             ❌ *gethrelay CI Failed*
             
             Some tests or builds failed. Please check the logs.
             
-            *Commit:* ${{ github.sha }}
-            *Branch:* ${{ github.ref_name }}
+            *Commit:* `${{ github.sha }}`
+            *Branch:* `${{ github.ref_name }}`
             
-            View: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+            [View Workflow](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
 
