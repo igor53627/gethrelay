@@ -190,25 +190,54 @@ jobs:
       - name: Setup Hive client configuration
         run: |
           mkdir -p /tmp/hive/clients/gethrelay
-          cp -r /tmp/hive/clients/go-ethereum/* /tmp/hive/clients/gethrelay/ || true
+          # Copy base structure from go-ethereum
+          cp -r /tmp/hive/clients/go-ethereum/* /tmp/hive/clients/gethrelay/
+          
+          # Create hive.yaml
           cat > /tmp/hive/clients/gethrelay/hive.yaml << 'EOF'
           roles:
             - "eth1"
             - "relay"
             - "rpc"
           EOF
+          
+          # Create Dockerfile.local that uses our image
           cat > /tmp/hive/clients/gethrelay/Dockerfile.local << 'EOF'
           FROM ethereum/gethrelay:latest
           RUN apk add --update bash curl jq
-          ADD gethrelay.sh /gethrelay.sh
+          COPY gethrelay.sh /gethrelay.sh
           RUN chmod +x /gethrelay.sh
           EXPOSE 8545 30303 30303/udp
           ENTRYPOINT ["/gethrelay.sh"]
           EOF
-
-      - name: Tag image for Hive
+          
+          # Copy/create startup script if geth.sh exists
+          if [ -f /tmp/hive/clients/gethrelay/geth.sh ]; then
+            cp /tmp/hive/clients/gethrelay/geth.sh /tmp/hive/clients/gethrelay/gethrelay.sh
+            sed -i 's/geth/gethrelay/g' /tmp/hive/clients/gethrelay/gethrelay.sh
+          else
+            cat > /tmp/hive/clients/gethrelay/gethrelay.sh << 'SCRIPTEOF'
+          #!/bin/sh
+          exec gethrelay --chain mainnet --rpc.upstream https://ethereum-rpc.publicnode.com
+          SCRIPTEOF
+            chmod +x /tmp/hive/clients/gethrelay/gethrelay.sh
+          fi
+          
+          # Verify client directory structure
+          echo "Client directory contents:"
+          ls -la /tmp/hive/clients/gethrelay/
+          
+      - name: Build Hive client image
+        working-directory: /tmp/hive
         run: |
-          docker tag ethereum/gethrelay:latest hive/clients/gethrelay:local
+          # Build the client image using Hive's build system
+          echo "Building gethrelay client image for Hive..."
+          docker build -f clients/gethrelay/Dockerfile.local -t hive/clients/gethrelay:local .
+          
+      - name: Verify Hive client image
+        run: |
+          docker images | grep gethrelay
+          docker inspect hive/clients/gethrelay:local || echo "Image not found, will use ethereum/gethrelay:latest"
 
       - name: Run RPC tests
         working-directory: /tmp/hive
@@ -218,7 +247,7 @@ jobs:
                --loglevel=3 \
                --sim.timelimit=15m \
                --results-root=./test-results
-        continue-on-error: true
+        continue-on-error: false
 
       - name: Run devp2p tests
         working-directory: /tmp/hive
@@ -228,7 +257,7 @@ jobs:
                --loglevel=3 \
                --sim.timelimit=15m \
                --results-root=./test-results
-        continue-on-error: true
+        continue-on-error: false
 
       - name: Upload test results
         uses: actions/upload-artifact@v4
