@@ -286,26 +286,59 @@ jobs:
           echo "Comparing with go-ethereum client..."
           ls -la clients/go-ethereum/ | head -20
 
-      - name: Test client discovery with dry run
+      - name: Debug - Comprehensive client discovery analysis
         working-directory: /tmp/hive
         run: |
-          echo "Testing if Hive can discover gethrelay:local..."
-          # Try to list or validate the client exists
-          echo "Client directory structure:"
-          find clients/gethrelay -type f | head -10
+          echo "=== COMPREHENSIVE CLIENT DISCOVERY DEBUG ==="
           echo ""
-          echo "Dockerfile.local contents:"
-          head -5 clients/gethrelay/Dockerfile.local
+          echo "1. Checking if clients/gethrelay directory exists:"
+          test -d clients/gethrelay && echo "  ✓ Directory exists" || echo "  ✗ Directory NOT found"
           echo ""
-          echo "Checking if Hive can see the client..."
-          # Try running Hive with just listing to see if it recognizes the client
-          echo "Testing client discovery..."
+          echo "2. Listing all client directories:"
+          ls -d clients/*/ | sed 's|^|  |'
           echo ""
-          echo "=== Verifying hive.yaml ==="
-          cat clients/gethrelay/hive.yaml
+          echo "3. Files in gethrelay directory:"
+          ls -la clients/gethrelay/ 2>/dev/null | sed 's|^|  |' || echo "  ✗ Cannot list directory"
           echo ""
-          echo "=== Comparing with go-ethereum ==="
-          cat clients/go-ethereum/hive.yaml
+          echo "4. Checking critical files:"
+          for file in hive.yaml Dockerfile.local gethrelay.sh enode.sh; do
+            if [ -f "clients/gethrelay/$file" ]; then
+              echo "  ✓ $file exists"
+              if [ "$file" = "hive.yaml" ]; then
+                echo "    Content:"
+                cat clients/gethrelay/$file | sed 's|^|      |'
+              fi
+            else
+              echo "  ✗ $file MISSING"
+            fi
+          done
+          echo ""
+          echo "5. Comparing with go-ethereum structure:"
+          echo "  go-ethereum files:"
+          ls clients/go-ethereum/ | head -10 | sed 's|^|    |'
+          echo ""
+          echo "6. Checking if Hive needs clients directory to be in specific location:"
+          pwd
+          echo "  Current working directory"
+          echo ""
+          echo "7. Testing Docker build of client manually:"
+          cd clients/gethrelay
+          if docker build -f Dockerfile.local -t test-gethrelay:local . 2>&1 | tail -15; then
+            echo "  ✓ Docker build succeeded"
+            docker rmi test-gethrelay:local || true
+          else
+            echo "  ✗ Docker build failed"
+          fi
+          cd ../..
+          echo ""
+          echo "8. Looking for client registry or discovery mechanism:"
+          # Hive might cache client list or have a registry
+          find . -name "*client*" -type f | grep -E "(yaml|yml|json|toml)" | head -5 | sed 's|^|  |' || echo "  No obvious client registry found"
+          echo ""
+          echo "9. Checking Hive binary for client discovery logic:"
+          strings hive 2>/dev/null | grep -i "client" | head -3 | sed 's|^|  |' || echo "  Cannot inspect binary"
+          echo ""
+          echo "=== END DEBUG ==="
 
       - name: Run RPC tests (using go-ethereum as base with image override)
         working-directory: /tmp/hive
