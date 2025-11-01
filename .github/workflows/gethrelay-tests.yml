@@ -129,7 +129,9 @@ jobs:
 
       - name: Save image
         run: |
-          docker save ethereum/gethrelay:latest | gzip > /tmp/gethrelay-image.tar.gz
+          docker save ethereum/gethrelay:latest -o /tmp/gethrelay-image.tar
+          gzip -f /tmp/gethrelay-image.tar
+          ls -lh /tmp/gethrelay-image.tar.gz
 
       - name: Upload Docker image artifact
         uses: actions/upload-artifact@v4
@@ -137,6 +139,7 @@ jobs:
           name: gethrelay-image
           path: /tmp/gethrelay-image.tar.gz
           retention-days: 1
+          compression-level: 0
 
   hive-tests:
     name: Hive Integration Tests
@@ -160,7 +163,16 @@ jobs:
 
       - name: Load Docker image
         run: |
-          gunzip -c /tmp/gethrelay-image.tar.gz | docker load
+          echo "Checking downloaded file..."
+          ls -lh /tmp/gethrelay-image.tar.gz
+          echo "Loading Docker image..."
+          gunzip -c /tmp/gethrelay-image.tar.gz | docker load || {
+            echo "Error loading image, trying alternative method..."
+            gunzip /tmp/gethrelay-image.tar.gz
+            docker load -i /tmp/gethrelay-image.tar
+          }
+          echo "Verifying image loaded..."
+          docker images | grep gethrelay
 
       - name: Set up Hive
         run: |
