@@ -248,7 +248,9 @@ jobs:
         working-directory: /tmp/hive
         run: |
           hive --sim=ethereum/rpc \
-               --client=gethrelay:local \
+               --client=go-ethereum:local \
+               --client-override=gethrelay:local=hive/clients/gethrelay:local \
+               --clients=gethrelay:local \
                --loglevel=3 \
                --sim.timelimit=15m \
                --results-root=./test-results
@@ -258,7 +260,9 @@ jobs:
         working-directory: /tmp/hive
         run: |
           hive --sim=devp2p \
-               --client=gethrelay:local \
+               --client=go-ethereum:local \
+               --client-override=gethrelay:local=hive/clients/gethrelay:local \
+               --clients=gethrelay:local \
                --loglevel=3 \
                --sim.timelimit=15m \
                --results-root=./test-results
