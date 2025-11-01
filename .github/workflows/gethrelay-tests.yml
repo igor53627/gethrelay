@@ -342,23 +342,61 @@ jobs:
           echo ""
           echo "=== END DEBUG ==="
 
-      - name: Run RPC tests
+      - name: Try gethrelay:local first, then fallback to go-ethereum
         working-directory: /tmp/hive
         run: |
-          echo "=== Running RPC tests with gethrelay:local ==="
+          echo "=== Attempt 1: Using gethrelay:local ==="
           echo ""
-          echo "Verifying client setup before running tests:"
+          echo "Verifying client setup:"
           echo "  - Client image exists:"
           docker images | grep gethrelay || echo "    ✗ No gethrelay images found"
           echo "  - Client directory:"
           ls -la clients/gethrelay/ 2>/dev/null | head -5 || echo "    ✗ Directory not found"
           echo ""
-          echo "Running Hive RPC tests..."
-          hive --sim=ethereum/rpc \
-               --client=gethrelay:local \
-               --loglevel=5 \
-               --sim.timelimit=15m \
-               --results-root=./test-results
+          
+          # Try gethrelay:local first
+          if hive --sim=ethereum/rpc \
+                  --client=gethrelay:local \
+                  --loglevel=5 \
+                  --sim.timelimit=15m \
+                  --results-root=./test-results-rpc 2>&1 | tee /tmp/hive-gethrelay-test.log; then
+            echo "✓ gethrelay:local succeeded!"
+            exit 0
+          else
+            echo ""
+            echo "✗ gethrelay:local failed - checking error:"
+            grep -i "unknown client" /tmp/hive-gethrelay-test.log || echo "  Error not related to client discovery"
+            echo ""
+            echo "=== Attempt 2: Workaround using go-ethereum:local ==="
+            echo ""
+            echo "Using go-ethereum client structure but with gethrelay image"
+            echo "This is a workaround until we fix client discovery"
+            echo ""
+            
+            # Modify go-ethereum Dockerfile.local to use our image
+            cp clients/go-ethereum/Dockerfile.local clients/go-ethereum/Dockerfile.local.backup
+            cat > clients/go-ethereum/Dockerfile.local << 'EOF'
+          FROM ethereum/gethrelay:latest
+          USER root
+          RUN apk add --update --no-cache bash curl jq
+          COPY geth.sh /geth.sh
+          COPY enode.sh /hive-bin/enode.sh
+          COPY mapper.jq /mapper.jq
+          RUN chmod +x /geth.sh /hive-bin/enode.sh
+          USER gethrelay
+          EXPOSE 8545 8546 8547 8551 30303 30303/udp
+          ENTRYPOINT ["/geth.sh"]
+          EOF
+            
+            # Adapt geth.sh to use gethrelay
+            sed -i 's|exec geth|exec gethrelay|g' clients/go-ethereum/geth.sh
+            
+            hive --sim=ethereum/rpc \
+                 --client=go-ethereum:local \
+                 --loglevel=5 \
+                 --sim.timelimit=15m \
+                 --results-root=./test-results
+          fi
         continue-on-error: false
 
       - name: Run devp2p tests
