@@ -264,12 +264,14 @@ jobs:
           docker images | grep gethrelay
           docker inspect ethereum/gethrelay:latest || (echo "ERROR: Base image not found" && exit 1)
           
-      - name: Build Hive client image (let Hive discover it)
+      - name: Build Hive client image
+        working-directory: /tmp/hive/clients/gethrelay
         run: |
-          # Don't build manually - let Hive build it when it discovers the client
-          # Hive will build from Dockerfile.local automatically
-          echo "Hive will build the client image automatically when it discovers the client"
-          echo "Base image ethereum/gethrelay:latest is ready"
+          echo "Building Hive client image from Dockerfile.local..."
+          docker build -f Dockerfile.local -t hive/clients/gethrelay:local .
+          echo "Verifying image was built..."
+          docker images | grep gethrelay
+          docker inspect hive/clients/gethrelay:local || (echo "ERROR: Failed to build client image" && exit 1)
 
       - name: Verify client discovery
         working-directory: /tmp/hive
@@ -340,24 +342,23 @@ jobs:
           echo ""
           echo "=== END DEBUG ==="
 
-      - name: Run RPC tests (using go-ethereum as base with image override)
+      - name: Run RPC tests
         working-directory: /tmp/hive
         run: |
-          # Use go-ethereum:local but ensure it uses our custom image
-          # Hive should discover go-ethereum, and we'll tag our image to match
-          docker tag ethereum/gethrelay:latest hive/clients/go-ethereum:local || true
-          docker tag hive/clients/gethrelay:local hive/clients/go-ethereum:local || true
-          
-          # Try using gethrelay:local first, fallback to go-ethereum if needed
-          echo "Attempting to use gethrelay:local client..."
+          echo "=== Running RPC tests with gethrelay:local ==="
+          echo ""
+          echo "Verifying client setup before running tests:"
+          echo "  - Client image exists:"
+          docker images | grep gethrelay || echo "    ✗ No gethrelay images found"
+          echo "  - Client directory:"
+          ls -la clients/gethrelay/ 2>/dev/null | head -5 || echo "    ✗ Directory not found"
+          echo ""
+          echo "Running Hive RPC tests..."
           hive --sim=ethereum/rpc \
                --client=gethrelay:local \
                --loglevel=5 \
                --sim.timelimit=15m \
-               --results-root=./test-results || {
-            echo "gethrelay:local failed, this is expected if client not discovered"
-            exit 1
-          }
+               --results-root=./test-results
         continue-on-error: false
 
       - name: Run devp2p tests
