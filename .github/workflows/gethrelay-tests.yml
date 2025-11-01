@@ -199,7 +199,7 @@ jobs:
             - "eth1"
           EOF
           
-          # Copy/create startup script if geth.sh exists
+          # Copy and adapt all necessary scripts from go-ethereum
           if [ -f /tmp/hive/clients/gethrelay/geth.sh ]; then
             cp /tmp/hive/clients/gethrelay/geth.sh /tmp/hive/clients/gethrelay/gethrelay.sh
             sed -i 's/geth/gethrelay/g' /tmp/hive/clients/gethrelay/gethrelay.sh
@@ -210,6 +210,25 @@ jobs:
           SCRIPTEOF
             chmod +x /tmp/hive/clients/gethrelay/gethrelay.sh
           fi
+          
+          # Create/adapt enode.sh script (required by Hive for P2P tests)
+          if [ -f /tmp/hive/clients/gethrelay/enode.sh ]; then
+            sed -i 's/geth/gethrelay/g' /tmp/hive/clients/gethrelay/enode.sh
+          else
+            cat > /tmp/hive/clients/gethrelay/enode.sh << 'ENODEEOF'
+          #!/bin/sh
+          # Output the enode URL for P2P connectivity
+          exec gethrelay --exec "admin.nodeInfo.enode" attach
+          ENODEEOF
+            chmod +x /tmp/hive/clients/gethrelay/enode.sh
+          fi
+          
+          # Ensure all copied scripts are adapted for gethrelay
+          find /tmp/hive/clients/gethrelay -type f -name "*.sh" | while read script; do
+            if grep -q "geth" "$script" 2>/dev/null; then
+              sed -i 's/\bgeth\b/gethrelay/g' "$script"
+            fi
+          done
           
           # Create Dockerfile.local that uses our image
           # Build context will be /tmp/hive/clients/gethrelay
