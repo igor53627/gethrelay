@@ -217,9 +217,13 @@ jobs:
           # Build context will be /tmp/hive/clients/gethrelay
           cat > /tmp/hive/clients/gethrelay/Dockerfile.local << 'EOF'
           FROM ethereum/gethrelay:latest
-          RUN apk add --update bash curl jq
+          # Switch to root to install packages (base image runs as non-root user)
+          USER root
+          RUN apk add --update --no-cache bash curl jq
           COPY gethrelay.sh /gethrelay.sh
           RUN chmod +x /gethrelay.sh
+          # Switch back to gethrelay user
+          USER gethrelay
           EXPOSE 8545 30303 30303/udp
           ENTRYPOINT ["/gethrelay.sh"]
           EOF
