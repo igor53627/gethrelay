@@ -245,9 +245,9 @@ jobs:
           # Copy all necessary scripts
           COPY gethrelay.sh /gethrelay.sh
           COPY enode.sh /enode.sh
+          # Copy mapper.jq (should exist since we copied from go-ethereum)
+          COPY mapper.jq /mapper.jq
           RUN chmod +x /gethrelay.sh /enode.sh
-          # Copy mapper.jq if it exists (used by some simulators)
-          COPY mapper.jq /mapper.jq 2>/dev/null || true
           # Switch back to gethrelay user
           USER gethrelay
           EXPOSE 8545 30303 30303/udp
