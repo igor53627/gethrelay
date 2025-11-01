@@ -2,7 +2,8 @@
 
 A lightweight Ethereum P2P relay node that forwards blockchain messages between peers without maintaining full blockchain state. Includes JSON-RPC proxy functionality for transaction handling.
 
-[![Go Report Card](https://goreportcard.com/badge/github.com/ethereum/go-ethereum)](https://goreportcard.com/report/github.com/ethereum/go-ethereum)
+[![Go Report Card](https://goreportcard.com/badge/github.com/igor53627/gethrelay)](https://goreportcard.com/report/github.com/igor53627/gethrelay)
+[![CI](https://github.com/igor53627/gethrelay/actions/workflows/gethrelay-tests.yml/badge.svg)](https://github.com/igor53627/gethrelay/actions/workflows/gethrelay-tests.yml)
 
 ## Overview
 
