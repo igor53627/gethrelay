@@ -193,12 +193,10 @@ jobs:
           # Copy base structure from go-ethereum
           cp -r /tmp/hive/clients/go-ethereum/* /tmp/hive/clients/gethrelay/
           
-          # Create hive.yaml
+          # Create hive.yaml (must match go-ethereum format for Hive compatibility)
           cat > /tmp/hive/clients/gethrelay/hive.yaml << 'EOF'
           roles:
             - "eth1"
-            - "relay"
-            - "rpc"
           EOF
           
           # Copy/create startup script if geth.sh exists
@@ -250,8 +248,23 @@ jobs:
           echo "Checking client directory structure..."
           ls -la clients/gethrelay/
           echo ""
+          echo "Checking hive.yaml..."
+          cat clients/gethrelay/hive.yaml
+          echo ""
           echo "Listing available clients..."
           ls -d clients/*/
+          echo ""
+          echo "Comparing with go-ethereum client..."
+          ls -la clients/go-ethereum/ | head -20
+
+      - name: List Hive clients
+        working-directory: /tmp/hive
+        run: |
+          echo "Testing if Hive can see our client..."
+          hive --list 2>&1 | grep -i gethrelay || echo "gethrelay not found in client list"
+          echo ""
+          echo "All clients:"
+          hive --list 2>&1 | head -20
 
       - name: Run RPC tests
         working-directory: /tmp/hive
