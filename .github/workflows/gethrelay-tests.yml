@@ -732,31 +732,34 @@ jobs:
             hive --list 2>&1 | grep -i "go-ethereum\|client" | head -10 || echo "Hive --list command output (check above)"
             echo ""
             
-            # Use client-override approach: create a new client name that uses our image
-            # Instead of overriding go-ethereum:local, create gethrelay:local that uses our image
-            # This matches the approach in test-hive.sh
-            echo "Running Hive tests with client-override (matching test-hive.sh approach)..."
-            echo "Creating new client 'gethrelay:local' that uses our built image"
-            echo "Using: --client-override=gethrelay:local=hive/clients/go-ethereum:local"
-            echo "And: --clients=gethrelay:local to actually run tests with it"
+            # Use proper Hive client setup (no --client-override, it doesn't exist!)
+            # Hive will discover clients from /tmp/hive/clients/gethrelay/ directory
+            # We've already set up the client directory in a previous step
+            echo "Running Hive tests with gethrelay:local client..."
+            echo "Hive will build the client image from /tmp/hive/clients/gethrelay/Dockerfile.local"
+            echo "Using: --client=gethrelay:local"
             set +e  # Don't exit on error so we can inspect results
             
-            # First, let's verify the image exists
-            echo "Verifying override image exists:"
-            docker images | grep -E "hive/clients/go-ethereum:local" || docker images | head -10
+            # Verify the base gethrelay image exists
+            echo "Verifying base gethrelay image exists:"
+            docker images | grep "ethereum/gethrelay" || {
+              echo "ERROR: Base image ethereum/gethrelay:latest not found!"
+              exit 1
+            }
             
-            # Use the same approach as test-hive.sh:
-            # --client=go-ethereum:local (base client for scripts/structure)
-            # --client-override=gethrelay:local=IMAGE (create new client pointing to our BASE image)
-            # --clients=gethrelay:local (actually use the new client)
-            # NOTE: Use ethereum/gethrelay:latest (base image) not the built client image
-            echo "Using base gethrelay image: ethereum/gethrelay:latest"
-            docker images | grep "ethereum/gethrelay" || echo "Base image not found!"
+            # Verify client directory exists
+            echo "Verifying client directory exists:"
+            if [ ! -d "/tmp/hive/clients/gethrelay" ]; then
+              echo "ERROR: Client directory /tmp/hive/clients/gethrelay not found!"
+              exit 1
+            fi
+            echo "Client directory found:"
+            ls -la /tmp/hive/clients/gethrelay/ | head -10
             
+            # Run Hive with the gethrelay client
+            # Hive will automatically build from Dockerfile.local if needed
             hive --sim=ethereum/rpc-compat \
-                 --client=go-ethereum:local \
-                 --client-override=gethrelay:local=ethereum/gethrelay:latest \
-                 --clients=gethrelay:local \
+                 --client=gethrelay:local \
                  --loglevel=5 \
                  --sim.timelimit=15m \
                  --results-root="$RESULTS_DIR" 2>&1 | tee /tmp/hive-goethereum-test.log
