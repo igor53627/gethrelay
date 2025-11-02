@@ -673,6 +673,21 @@ jobs:
             # Adapt geth.sh to use gethrelay
             sed -i 's|exec geth|exec gethrelay|g' clients/go-ethereum/geth.sh
             
+            echo ""
+            echo "Building go-ethereum client image for Hive..."
+            echo "This is required for Hive to discover and use the client"
+            cd clients/go-ethereum
+            if ! docker build -f Dockerfile.local -t hive/clients/go-ethereum:local .; then
+              echo "❌ ERROR: Failed to build go-ethereum client image!"
+              echo "Build log output above should show the issue"
+              cd ../..
+              exit 1
+            fi
+            cd ../..
+            echo "✓ Client image built successfully"
+            docker images | grep -E "(go-ethereum|gethrelay)" || echo "Note: Image tags might differ"
+            echo ""
+            
             # Set results directory for fallback
             RESULTS_DIR="./test-results"
             mkdir -p "$RESULTS_DIR"
@@ -892,6 +907,16 @@ jobs:
           ENTRYPOINT ["/geth.sh"]
           EOF
               sed -i 's|exec geth|exec gethrelay|g' clients/go-ethereum/geth.sh
+              
+              echo "Building go-ethereum client image for devp2p tests..."
+              cd clients/go-ethereum
+              if ! docker build -f Dockerfile.local -t hive/clients/go-ethereum:local .; then
+                echo "❌ ERROR: Failed to build go-ethereum client image!"
+                cd ../..
+                exit 1
+              fi
+              cd ../..
+              echo "✓ Client image built successfully"
             fi
             
             # Set results directory for fallback
