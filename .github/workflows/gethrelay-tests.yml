@@ -204,16 +204,26 @@ jobs:
 
       - name: Set up Hive
         run: |
+          # Always clone Hive repository (needed for simulators and client configs)
+          echo "Cloning Hive repository..."
+          git clone --depth=1 https://github.com/ethereum/hive.git /tmp/hive
+          
+          # Use cached binary if available, otherwise build it
           if [ -f "/tmp/hive-binary/hive" ]; then
             echo "Using cached Hive binary"
             cp /tmp/hive-binary/hive /usr/local/bin/hive
           else
             echo "Building Hive from source"
-            git clone --depth=1 https://github.com/ethereum/hive.git /tmp/hive
             cd /tmp/hive && go build -o /usr/local/bin/hive .
             mkdir -p /tmp/hive-binary
             cp /usr/local/bin/hive /tmp/hive-binary/hive
           fi
+          
+          # Verify Hive is set up correctly
+          echo "Verifying Hive setup..."
+          /usr/local/bin/hive --version || echo "Hive version check failed"
+          test -d /tmp/hive/simulators || (echo "ERROR: Simulators directory not found!" && exit 1)
+          test -d /tmp/hive/clients || (echo "ERROR: Clients directory not found!" && exit 1)
           
       - name: Verify workflow file version
         run: |
