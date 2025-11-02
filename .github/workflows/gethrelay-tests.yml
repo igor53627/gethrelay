@@ -2,7 +2,7 @@ name: Gethrelay Tests
 
 on:
   push:
-    branches: [ master, main ]
+    # Run on all branches (including feature branches) to test before merging
     paths:
       - 'cmd/gethrelay/**'
       - 'eth/relay/**'
@@ -10,6 +10,7 @@ on:
       - 'go.sum'
       - '.github/workflows/gethrelay-tests.yml'
   pull_request:
+    # Run on PRs to main/master
     branches: [ master, main ]
     paths:
       - 'cmd/gethrelay/**'
@@ -18,6 +19,13 @@ on:
       - 'go.sum'
       - '.github/workflows/gethrelay-tests.yml'
   workflow_dispatch:
+    # Allow manual trigger from GitHub UI
+    inputs:
+      notify:
+        description: 'Send Telegram notifications'
+        required: false
+        default: 'true'
+        type: boolean
 
 env:
   GO_VERSION: '1.24'
