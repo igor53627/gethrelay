@@ -186,6 +186,48 @@ jobs:
         run: |
           git clone --depth=1 https://github.com/ethereum/hive.git /tmp/hive
           cd /tmp/hive && go build -o /usr/local/bin/hive .
+          
+      - name: Verify Hive setup and available simulators
+        working-directory: /tmp/hive
+        run: |
+          echo "=== Hive Setup Verification ==="
+          echo ""
+          echo "1. Hive binary location and version:"
+          which hive || echo "hive not in PATH"
+          /usr/local/bin/hive --version 2>&1 || hive --version 2>&1 || echo "Cannot get version"
+          echo ""
+          echo "2. Checking simulators directory:"
+          if [ -d "simulators" ]; then
+            echo "✓ Simulators directory exists"
+            echo "Available simulators:"
+            ls -d simulators/*/ 2>/dev/null | sed 's|simulators/||' | sed 's|/||' | head -20
+            echo ""
+            echo "3. Checking for specific simulators:"
+            if [ -d "simulators/ethereum/rpc" ]; then
+              echo "✓ ethereum/rpc simulator found"
+              ls -la simulators/ethereum/rpc/ | head -10
+            else
+              echo "✗ ethereum/rpc simulator NOT found"
+              echo "Trying alternative paths..."
+              find . -name "*rpc*" -type d | grep -i simulator | head -5
+            fi
+            echo ""
+            if [ -d "simulators/devp2p" ]; then
+              echo "✓ devp2p simulator found"
+              ls -la simulators/devp2p/ | head -10
+            else
+              echo "✗ devp2p simulator NOT found"
+              echo "Trying alternative paths..."
+              find . -name "*devp2p*" -type d | grep -i simulator | head -5
+            fi
+          else
+            echo "✗ Simulators directory does not exist!"
+            echo "Current directory structure:"
+            ls -la | head -20
+          fi
+          echo ""
+          echo "4. Testing Hive help/usage:"
+          hive --help 2>&1 | head -20 || echo "Cannot get help"
 
       - name: Setup Hive client configuration
         run: |
@@ -446,18 +488,38 @@ jobs:
             echo "=== All .log files in current directory ==="
             find . -name "*.log" -type f 2>/dev/null | head -10 || echo "No log files"
             
+            # Always show the full output to understand what happened
+            echo ""
+            echo "=== Full Hive Output ==="
+            cat /tmp/hive-goethereum-test.log
+            echo ""
+            echo "=== Output Analysis ==="
+            
+            # Check for common issues
+            if grep -qi "unknown client\|client.*not found" /tmp/hive-goethereum-test.log; then
+              echo "❌ ISSUE: Client not recognized by Hive"
+            fi
+            if grep -qi "simulator.*not found\|no.*simulator" /tmp/hive-goethereum-test.log; then
+              echo "❌ ISSUE: Simulator not found"
+            fi
+            if grep -qi "error\|failed\|fatal" /tmp/hive-goethereum-test.log; then
+              echo "❌ ISSUE: Errors detected in output"
+              grep -i "error\|failed\|fatal" /tmp/hive-goethereum-test.log | head -10
+            fi
+            if grep -qi "simulator.*started\|running.*test" /tmp/hive-goethereum-test.log; then
+              echo "✓ Simulators appear to have started"
+            fi
+            
             # If exit code is non-zero, show error
             if [ $HIVE_EXIT_CODE -ne 0 ]; then
               echo ""
-              echo "✗ Hive exited with error code: $HIVE_EXIT_CODE"
-              echo "Last 100 lines of output:"
-              tail -100 /tmp/hive-goethereum-test.log
+              echo "❌ Hive exited with error code: $HIVE_EXIT_CODE"
               echo ""
-              echo "Checking if tests actually ran..."
-              grep -i "simulator\|test\|client" /tmp/hive-goethereum-test.log | tail -20 || echo "No test-related output found"
+              echo "Last 50 lines of output:"
+              tail -50 /tmp/hive-goethereum-test.log
             else
               echo ""
-              echo "✓ Hive completed successfully"
+              echo "✓ Hive exited successfully (code: $HIVE_EXIT_CODE)"
             fi
             
             # Check if we should exit based on whether results exist
