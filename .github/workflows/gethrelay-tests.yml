@@ -732,21 +732,27 @@ jobs:
             hive --list 2>&1 | grep -i "go-ethereum\|client" | head -10 || echo "Hive --list command output (check above)"
             echo ""
             
-            # Run Hive using client-override instead of modifying Dockerfile
-            # The syntax is: --client-override=CLIENT_NAME=IMAGE_TAG
-            # This tells Hive: "when you need CLIENT_NAME, use this IMAGE_TAG instead"
-            echo "Running Hive tests with client-override..."
-            echo "Using: --client-override=go-ethereum:local=hive/clients/go-ethereum:local"
-            echo "This tells Hive to use our built image for go-ethereum:local client"
+            # Use client-override approach: create a new client name that uses our image
+            # Instead of overriding go-ethereum:local, create gethrelay:local that uses our image
+            # This matches the approach in test-hive.sh
+            echo "Running Hive tests with client-override (matching test-hive.sh approach)..."
+            echo "Creating new client 'gethrelay:local' that uses our built image"
+            echo "Using: --client-override=gethrelay:local=hive/clients/go-ethereum:local"
+            echo "And: --clients=gethrelay:local to actually run tests with it"
             set +e  # Don't exit on error so we can inspect results
             
             # First, let's verify the image exists
             echo "Verifying override image exists:"
             docker images | grep -E "hive/clients/go-ethereum:local" || docker images | head -10
             
+            # Use the same approach as test-hive.sh:
+            # --client=go-ethereum:local (base client for scripts/structure)
+            # --client-override=gethrelay:local=IMAGE (create new client pointing to our image)
+            # --clients=gethrelay:local (actually use the new client)
             hive --sim=ethereum/rpc-compat \
                  --client=go-ethereum:local \
-                 --client-override=go-ethereum:local=hive/clients/go-ethereum:local \
+                 --client-override=gethrelay:local=hive/clients/go-ethereum:local \
+                 --clients=gethrelay:local \
                  --loglevel=5 \
                  --sim.timelimit=15m \
                  --results-root="$RESULTS_DIR" 2>&1 | tee /tmp/hive-goethereum-test.log
@@ -989,11 +995,14 @@ jobs:
             RESULTS_DIR="./test-results"
             mkdir -p "$RESULTS_DIR"
             
-            echo "Running Hive with go-ethereum:local (using gethrelay)..."
-            echo "Using: --client-override=go-ethereum:local=hive/clients/go-ethereum:local"
+            echo "Running Hive with gethrelay:local (using client-override)..."
+            echo "Using same approach as test-hive.sh:"
+            echo "  --client-override=gethrelay:local=hive/clients/go-ethereum:local"
+            echo "  --clients=gethrelay:local"
             if hive --sim=devp2p \
                     --client=go-ethereum:local \
-                    --client-override=go-ethereum:local=hive/clients/go-ethereum:local \
+                    --client-override=gethrelay:local=hive/clients/go-ethereum:local \
+                    --clients=gethrelay:local \
                     --loglevel=5 \
                     --sim.timelimit=15m \
                     --results-root="$RESULTS_DIR" 2>&1 | tee /tmp/hive-devp2p-goethereum.log; then
