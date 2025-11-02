@@ -999,15 +999,10 @@ jobs:
             RESULTS_DIR="./test-results"
             mkdir -p "$RESULTS_DIR"
             
-            echo "Running Hive with gethrelay:local (using client-override)..."
-            echo "Using same approach as test-hive.sh:"
-            echo "  --client-override=gethrelay:local=ethereum/gethrelay:latest"
-            echo "  --clients=gethrelay:local"
-            echo "NOTE: Using base image ethereum/gethrelay:latest (matches test-hive.sh)"
+            echo "Running devp2p tests with gethrelay:local client..."
+            echo "Using: --client=gethrelay:local"
             if hive --sim=devp2p \
-                    --client=go-ethereum:local \
-                    --client-override=gethrelay:local=ethereum/gethrelay:latest \
-                    --clients=gethrelay:local \
+                    --client=gethrelay:local \
                     --loglevel=5 \
                     --sim.timelimit=15m \
                     --results-root="$RESULTS_DIR" 2>&1 | tee /tmp/hive-devp2p-goethereum.log; then
