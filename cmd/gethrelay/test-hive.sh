@@ -59,16 +59,77 @@ else
     fi
 fi
 
+echo -e "${GREEN}Setting up Hive client configuration for gethrelay...${NC}"
+
+# Find or clone Hive
+HIVE_CLIENTS_DIR=""
+if [ -d "/tmp/hive-build/clients" ]; then
+    HIVE_CLIENTS_DIR="/tmp/hive-build/clients"
+elif command -v hive &> /dev/null; then
+    # Try to find Hive directory
+    HIVE_BIN_DIR=$(dirname $(which hive))
+    if [ -d "$HIVE_BIN_DIR/../clients" ]; then
+        HIVE_CLIENTS_DIR="$(cd $HIVE_BIN_DIR/../clients && pwd)"
+    fi
+fi
+
+if [ -z "$HIVE_CLIENTS_DIR" ]; then
+    echo -e "${YELLOW}Hive clients directory not found. Cloning Hive...${NC}"
+    git clone --depth=1 https://github.com/ethereum/hive.git /tmp/hive-test-setup
+    cd /tmp/hive-test-setup
+    "$HIVE_BIN" --version 2>&1 || go build -o ./hive .
+    HIVE_CLIENTS_DIR="/tmp/hive-test-setup/clients"
+fi
+
+# Set up gethrelay client
+echo "Creating gethrelay client in $HIVE_CLIENTS_DIR..."
+mkdir -p "$HIVE_CLIENTS_DIR/gethrelay"
+cp -r "$HIVE_CLIENTS_DIR/go-ethereum/*" "$HIVE_CLIENTS_DIR/gethrelay/" 2>/dev/null || true
+
+# Create hive.yaml
+cat > "$HIVE_CLIENTS_DIR/gethrelay/hive.yaml" << 'EOF'
+roles:
+  - "eth1"
+EOF
+
+# Adapt scripts
+if [ -f "$HIVE_CLIENTS_DIR/gethrelay/geth.sh" ]; then
+    sed 's/geth/gethrelay/g' "$HIVE_CLIENTS_DIR/gethrelay/geth.sh" > "$HIVE_CLIENTS_DIR/gethrelay/gethrelay.sh"
+    chmod +x "$HIVE_CLIENTS_DIR/gethrelay/gethrelay.sh"
+fi
+
+if [ -f "$HIVE_CLIENTS_DIR/gethrelay/enode.sh" ]; then
+    sed -i '' 's/geth/gethrelay/g' "$HIVE_CLIENTS_DIR/gethrelay/enode.sh" 2>/dev/null || \
+    sed -i 's/geth/gethrelay/g' "$HIVE_CLIENTS_DIR/gethrelay/enode.sh"
+fi
+
+# Create Dockerfile.local
+cat > "$HIVE_CLIENTS_DIR/gethrelay/Dockerfile.local" << 'EOF'
+FROM ethereum/gethrelay:local
+USER root
+RUN apk add --update --no-cache bash curl jq
+COPY gethrelay.sh /gethrelay.sh
+COPY enode.sh /enode.sh
+RUN chmod +x /gethrelay.sh /enode.sh
+USER gethrelay
+EXPOSE 8545 30303 30303/udp
+ENTRYPOINT ["/gethrelay.sh"]
+EOF
+
 echo -e "${GREEN}Running Hive tests...${NC}"
 
-# Run devp2p tests using client override
-echo -e "${YELLOW}Running devp2p tests...${NC}"
-"$HIVE_BIN" --client=go-ethereum:local \
-     --client-override=gethrelay:local=ethereum/gethrelay:local \
+# Run tests using proper client setup (no --client-override, it doesn't exist!)
+# Hive will discover the client from the clients/ directory
+if [ -d "/tmp/hive-test-setup" ]; then
+    cd /tmp/hive-test-setup
+    HIVE_BIN="./hive"
+fi
+
+echo -e "${YELLOW}Running devp2p and RPC tests...${NC}"
+"$HIVE_BIN" --client=gethrelay:local \
      --sim=devp2p \
      --sim=ethereum/rpc-compat \
-     --loglevel=5 \
-     --clients=gethrelay:local
+     --loglevel=5
 
 if [ $? -eq 0 ]; then
     echo -e "${GREEN}All tests passed!${NC}"
