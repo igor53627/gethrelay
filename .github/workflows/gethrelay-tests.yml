@@ -187,6 +187,18 @@ jobs:
           git clone --depth=1 https://github.com/ethereum/hive.git /tmp/hive
           cd /tmp/hive && go build -o /usr/local/bin/hive .
           
+      - name: Verify workflow file version
+        run: |
+          echo "=== Workflow Version Check ==="
+          echo "Current commit: $(git rev-parse HEAD)"
+          echo "Branch: $(git branch --show-current)"
+          echo "Workflow file last modified:"
+          git log -1 --format="%ai %h %s" -- .github/workflows/gethrelay-tests.yml || echo "Cannot get git info"
+          echo ""
+          echo "Checking for diagnostic steps (should see 'Verify Hive setup' step):"
+          grep -c "Verify Hive setup" .github/workflows/gethrelay-tests.yml && echo "✓ Diagnostic steps found" || echo "✗ Diagnostic steps missing"
+          echo ""
+          
       - name: Verify Hive setup and available simulators
         working-directory: /tmp/hive
         run: |
