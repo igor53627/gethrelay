@@ -448,12 +448,11 @@ jobs:
       - name: Upload test results
         uses: actions/upload-artifact@v4
         if: always()
-        working-directory: /tmp/hive
         with:
           name: hive-test-results
           path: |
-            **/test-results*/
-            **/*.log
+            /tmp/hive/**/test-results*/
+            /tmp/hive/**/*.log
           retention-days: 7
           if-no-files-found: warn
 
