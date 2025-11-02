@@ -202,52 +202,97 @@ jobs:
       - name: Verify Hive setup and available simulators
         working-directory: /tmp/hive
         run: |
+          echo "## 🔍 Hive Setup Verification" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
           echo "=== Hive Setup Verification ==="
           echo ""
           echo "1. Hive binary location and version:"
           which hive || echo "hive not in PATH"
-          /usr/local/bin/hive --version 2>&1 || hive --version 2>&1 || echo "Cannot get version"
+          HIVE_VERSION=$(/usr/local/bin/hive --version 2>&1 || hive --version 2>&1 || echo "Cannot get version")
+          echo "$HIVE_VERSION"
+          echo "**Hive Version:** \`$HIVE_VERSION\`" >> $GITHUB_STEP_SUMMARY
           echo ""
+          
           echo "2. Checking simulators directory:"
+          SIMULATOR_FOUND=false
           if [ -d "simulators" ]; then
-            echo "✓ Simulators directory exists"
+            echo "✓ Simulators directory exists" | tee -a $GITHUB_STEP_SUMMARY
+            echo "**Simulators Directory:** ✓ Exists" >> $GITHUB_STEP_SUMMARY
             echo "Available simulators:"
-            ls -d simulators/*/ 2>/dev/null | sed 's|simulators/||' | sed 's|/||' | head -20
+            SIMULATORS=$(ls -d simulators/*/ 2>/dev/null | sed 's|simulators/||' | sed 's|/||' | head -20)
+            echo "$SIMULATORS"
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Available Simulators:**" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            echo "$SIMULATORS" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
             echo ""
             echo "3. Checking for specific simulators:"
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Simulator Status:**" >> $GITHUB_STEP_SUMMARY
             if [ -d "simulators/ethereum/rpc" ]; then
               echo "✓ ethereum/rpc simulator found"
+              echo "✓ **ethereum/rpc:** Found" >> $GITHUB_STEP_SUMMARY
               ls -la simulators/ethereum/rpc/ | head -10
+              SIMULATOR_FOUND=true
             else
               echo "✗ ethereum/rpc simulator NOT found"
+              echo "❌ **ethereum/rpc:** NOT FOUND" >> $GITHUB_STEP_SUMMARY
               echo "Trying alternative paths..."
-              find . -name "*rpc*" -type d | grep -i simulator | head -5
+              ALTERNATIVES=$(find . -name "*rpc*" -type d | grep -i simulator | head -5)
+              echo "$ALTERNATIVES"
+              if [ -n "$ALTERNATIVES" ]; then
+                echo "**Alternative RPC paths found:**" >> $GITHUB_STEP_SUMMARY
+                echo "$ALTERNATIVES" >> $GITHUB_STEP_SUMMARY
+              fi
             fi
             echo ""
             if [ -d "simulators/devp2p" ]; then
               echo "✓ devp2p simulator found"
+              echo "✓ **devp2p:** Found" >> $GITHUB_STEP_SUMMARY
               ls -la simulators/devp2p/ | head -10
+              SIMULATOR_FOUND=true
             else
               echo "✗ devp2p simulator NOT found"
+              echo "❌ **devp2p:** NOT FOUND" >> $GITHUB_STEP_SUMMARY
               echo "Trying alternative paths..."
-              find . -name "*devp2p*" -type d | grep -i simulator | head -5
+              ALTERNATIVES=$(find . -name "*devp2p*" -type d | grep -i simulator | head -5)
+              echo "$ALTERNATIVES"
+              if [ -n "$ALTERNATIVES" ]; then
+                echo "**Alternative devp2p paths found:**" >> $GITHUB_STEP_SUMMARY
+                echo "$ALTERNATIVES" >> $GITHUB_STEP_SUMMARY
+              fi
             fi
           else
             echo "✗ Simulators directory does not exist!"
+            echo "❌ **Simulators Directory:** Does NOT exist!" >> $GITHUB_STEP_SUMMARY
             echo "Current directory structure:"
             ls -la | head -20
           fi
           echo ""
           echo "4. Testing Hive help/usage:"
-          hive --help 2>&1 | head -20 || echo "Cannot get help"
+          HIVE_HELP=$(hive --help 2>&1 | head -20 || echo "Cannot get help")
+          echo "$HIVE_HELP"
           echo ""
           echo "5. Testing if Hive can list clients:"
-          # Some versions of Hive support listing
-          hive --list 2>&1 | head -20 || echo "List command not available or failed"
+          HIVE_LIST=$(hive --list 2>&1 | head -20 || echo "List command not available or failed")
+          echo "$HIVE_LIST"
           echo ""
           echo "6. Current directory and structure:"
           pwd
           ls -la | head -10
+          
+          # Summary to step summary
+          if [ "$SIMULATOR_FOUND" = false ]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "## ❌ CRITICAL ISSUE DETECTED" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Simulators NOT FOUND!** This is why no tests are running." >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "The simulators \`ethereum/rpc\` and \`devp2p\` do not exist in the expected location." >> $GITHUB_STEP_SUMMARY
+            echo "Hive cannot run tests without simulators." >> $GITHUB_STEP_SUMMARY
+          fi
 
       - name: Setup Hive client configuration
         run: |
@@ -592,15 +637,24 @@ jobs:
               # Check if this is a "no simulators found" scenario
               if ! grep -qi "simulator\|test\|start" /tmp/hive-goethereum-test.log 2>/dev/null; then
                 echo "❌ CRITICAL: Hive output contains no simulator/test mentions!"
-                echo "This strongly suggests simulators were not found or did not start"
-                echo ""
-                echo "The Hive command that was run:"
-                echo "  hive --sim=ethereum/rpc --client=go-ethereum:local --loglevel=5 --sim.timelimit=15m --results-root=$RESULTS_DIR"
-                echo ""
-                echo "This likely means:"
-                echo "  - The simulator 'ethereum/rpc' doesn't exist"
-                echo "  - Or the simulator path/name is incorrect"
-                echo "  - Or Hive isn't finding simulators in the expected location"
+                echo "## ❌ CRITICAL ISSUE" >> $GITHUB_STEP_SUMMARY
+                echo "" >> $GITHUB_STEP_SUMMARY
+                echo "**Root Cause:** Hive output contains no simulator/test mentions!" >> $GITHUB_STEP_SUMMARY
+                echo "" >> $GITHUB_STEP_SUMMARY
+                echo "The Hive command that was run:" >> $GITHUB_STEP_SUMMARY
+                echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+                echo "hive --sim=ethereum/rpc --client=go-ethereum:local --loglevel=5 --sim.timelimit=15m --results-root=$RESULTS_DIR" >> $GITHUB_STEP_SUMMARY
+                echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+                echo "" >> $GITHUB_STEP_SUMMARY
+                echo "**This likely means:**" >> $GITHUB_STEP_SUMMARY
+                echo "- The simulator \`ethereum/rpc\` doesn't exist" >> $GITHUB_STEP_SUMMARY
+                echo "- Or the simulator path/name is incorrect" >> $GITHUB_STEP_SUMMARY
+                echo "- Or Hive isn't finding simulators in the expected location" >> $GITHUB_STEP_SUMMARY
+                echo "" >> $GITHUB_STEP_SUMMARY
+                echo "**Full Hive Output:**" >> $GITHUB_STEP_SUMMARY
+                echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+                cat /tmp/hive-goethereum-test.log >> $GITHUB_STEP_SUMMARY 2>/dev/null || echo "Log file empty or not found" >> $GITHUB_STEP_SUMMARY
+                echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
               fi
               # Don't fail here - let the diagnostics step show what happened
             else
