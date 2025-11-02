@@ -403,23 +403,72 @@ jobs:
             mkdir -p "$RESULTS_DIR"
             
             echo "Running Hive with go-ethereum:local (using gethrelay)..."
-            if hive --sim=ethereum/rpc \
-                    --client=go-ethereum:local \
-                    --loglevel=5 \
-                    --sim.timelimit=15m \
-                    --results-root="$RESULTS_DIR" 2>&1 | tee /tmp/hive-goethereum-test.log; then
+            echo "Results will be saved to: $RESULTS_DIR"
+            echo "Absolute path: $(realpath "$RESULTS_DIR" || pwd)/$RESULTS_DIR"
+            echo ""
+            
+            # Run Hive and capture all output
+            set +e  # Don't exit on error so we can inspect results
+            hive --sim=ethereum/rpc \
+                 --client=go-ethereum:local \
+                 --loglevel=5 \
+                 --sim.timelimit=15m \
+                 --results-root="$RESULTS_DIR" 2>&1 | tee /tmp/hive-goethereum-test.log
+            HIVE_EXIT_CODE=$?
+            set -e
+            
+            echo ""
+            echo "Hive exit code: $HIVE_EXIT_CODE"
+            echo ""
+            
+            # Check what was created
+            echo "=== Checking results directory ==="
+            if [ -d "$RESULTS_DIR" ]; then
+              echo "Directory exists: $RESULTS_DIR"
+              echo "Contents:"
+              ls -la "$RESULTS_DIR" || echo "Cannot list directory"
               echo ""
-              echo "✓ Tests completed successfully!"
-              echo "Results saved to: $RESULTS_DIR"
-              find "$RESULTS_DIR" -type f | head -10
-              echo ""
-              echo "Directory structure:"
-              ls -laR "$RESULTS_DIR" | head -30
+              echo "All files:"
+              find "$RESULTS_DIR" -type f || echo "No files found"
             else
-              echo "✗ Tests failed"
-              echo "Last 50 lines of log:"
-              tail -50 /tmp/hive-goethereum-test.log
-              exit 1
+              echo "Directory does not exist: $RESULTS_DIR"
+            fi
+            
+            # Check workspace/logs (Hive default)
+            if [ -d "workspace/logs" ]; then
+              echo ""
+              echo "=== Checking workspace/logs ==="
+              find workspace/logs -type f | head -20
+            fi
+            
+            # Check for any log files
+            echo ""
+            echo "=== All .log files in current directory ==="
+            find . -name "*.log" -type f 2>/dev/null | head -10 || echo "No log files"
+            
+            # If exit code is non-zero, show error
+            if [ $HIVE_EXIT_CODE -ne 0 ]; then
+              echo ""
+              echo "✗ Hive exited with error code: $HIVE_EXIT_CODE"
+              echo "Last 100 lines of output:"
+              tail -100 /tmp/hive-goethereum-test.log
+              echo ""
+              echo "Checking if tests actually ran..."
+              grep -i "simulator\|test\|client" /tmp/hive-goethereum-test.log | tail -20 || echo "No test-related output found"
+            else
+              echo ""
+              echo "✓ Hive completed successfully"
+            fi
+            
+            # Check if we should exit based on whether results exist
+            if [ ! -d "$RESULTS_DIR" ] || [ -z "$(find "$RESULTS_DIR" -type f 2>/dev/null)" ]; then
+              echo ""
+              echo "⚠️ WARNING: No results found after test completion"
+              echo "This may indicate tests didn't run or no simulators were found"
+              echo ""
+              echo "Checking available simulators..."
+              echo "Simulators directory:"
+              ls -la simulators/ 2>/dev/null | head -10 || echo "Simulators directory not found"
             fi
           fi
         continue-on-error: false
