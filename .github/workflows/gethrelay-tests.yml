@@ -231,20 +231,29 @@ jobs:
             echo "3. Checking for specific simulators:"
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "**Simulator Status:**" >> $GITHUB_STEP_SUMMARY
+            RPC_FOUND=false
+            DEVP2P_FOUND=false
+            
             if [ -d "simulators/ethereum/rpc" ]; then
               echo "✓ ethereum/rpc simulator found"
               echo "✓ **ethereum/rpc:** Found" >> $GITHUB_STEP_SUMMARY
               ls -la simulators/ethereum/rpc/ | head -10
+              RPC_FOUND=true
               SIMULATOR_FOUND=true
             else
               echo "✗ ethereum/rpc simulator NOT found"
               echo "❌ **ethereum/rpc:** NOT FOUND" >> $GITHUB_STEP_SUMMARY
               echo "Trying alternative paths..."
-              ALTERNATIVES=$(find . -name "*rpc*" -type d | grep -i simulator | head -5)
-              echo "$ALTERNATIVES"
+              ALTERNATIVES=$(find . -path "*/simulators/*rpc*" -type d 2>/dev/null | head -10)
               if [ -n "$ALTERNATIVES" ]; then
+                echo "Alternative RPC paths found:"
+                echo "$ALTERNATIVES"
                 echo "**Alternative RPC paths found:**" >> $GITHUB_STEP_SUMMARY
+                echo '```' >> $GITHUB_STEP_SUMMARY
                 echo "$ALTERNATIVES" >> $GITHUB_STEP_SUMMARY
+                echo '```' >> $GITHUB_STEP_SUMMARY
+              else
+                echo "No alternative RPC simulator paths found"
               fi
             fi
             echo ""
@@ -252,18 +261,33 @@ jobs:
               echo "✓ devp2p simulator found"
               echo "✓ **devp2p:** Found" >> $GITHUB_STEP_SUMMARY
               ls -la simulators/devp2p/ | head -10
+              DEVP2P_FOUND=true
               SIMULATOR_FOUND=true
             else
               echo "✗ devp2p simulator NOT found"
               echo "❌ **devp2p:** NOT FOUND" >> $GITHUB_STEP_SUMMARY
               echo "Trying alternative paths..."
-              ALTERNATIVES=$(find . -name "*devp2p*" -type d | grep -i simulator | head -5)
-              echo "$ALTERNATIVES"
+              ALTERNATIVES=$(find . -path "*/simulators/*devp2p*" -type d 2>/dev/null | head -10)
               if [ -n "$ALTERNATIVES" ]; then
+                echo "Alternative devp2p paths found:"
+                echo "$ALTERNATIVES"
                 echo "**Alternative devp2p paths found:**" >> $GITHUB_STEP_SUMMARY
+                echo '```' >> $GITHUB_STEP_SUMMARY
                 echo "$ALTERNATIVES" >> $GITHUB_STEP_SUMMARY
+                echo '```' >> $GITHUB_STEP_SUMMARY
+              else
+                echo "No alternative devp2p simulator paths found"
               fi
             fi
+            
+            # Show what simulators actually exist that might match
+            echo ""
+            echo "4. Looking for simulators that contain 'rpc' or 'devp2p' in their path:"
+            echo "Simulators with 'rpc' in path:"
+            find simulators -type d -iname "*rpc*" 2>/dev/null | head -10 || echo "None found"
+            echo ""
+            echo "Simulators with 'devp2p' or 'p2p' in path:"
+            find simulators -type d \( -iname "*devp2p*" -o -iname "*p2p*" \) 2>/dev/null | head -10 || echo "None found"
           else
             echo "✗ Simulators directory does not exist!"
             echo "❌ **Simulators Directory:** Does NOT exist!" >> $GITHUB_STEP_SUMMARY
@@ -271,19 +295,24 @@ jobs:
             ls -la | head -20
           fi
           echo ""
-          echo "4. Testing Hive help/usage:"
+          echo "5. Testing Hive help/usage:"
           HIVE_HELP=$(hive --help 2>&1 | head -20 || echo "Cannot get help")
           echo "$HIVE_HELP"
           echo ""
-          echo "5. Testing if Hive can list clients:"
+          echo "6. Testing if Hive can list clients:"
           HIVE_LIST=$(hive --list 2>&1 | head -20 || echo "List command not available or failed")
           echo "$HIVE_LIST"
           echo ""
-          echo "6. Current directory and structure:"
+          echo "7. Current directory and structure:"
           pwd
           ls -la | head -10
           
           # Summary to step summary and fail if simulators not found
+          # Need both RPC and devp2p for tests to work
+          if [ "$RPC_FOUND" = false ] || [ "$DEVP2P_FOUND" = false ]; then
+            SIMULATOR_FOUND=false
+          fi
+          
           if [ "$SIMULATOR_FOUND" = false ]; then
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "## ❌ CRITICAL ISSUE DETECTED" >> $GITHUB_STEP_SUMMARY
