@@ -354,13 +354,20 @@ jobs:
           ls -la clients/gethrelay/ 2>/dev/null | head -5 || echo "    ✗ Directory not found"
           echo ""
           
+          # Set results directory
+          RESULTS_DIR="./test-results-rpc"
+          mkdir -p "$RESULTS_DIR"
+          
           # Try gethrelay:local first
           if hive --sim=ethereum/rpc \
                   --client=gethrelay:local \
                   --loglevel=5 \
                   --sim.timelimit=15m \
-                  --results-root=./test-results-rpc 2>&1 | tee /tmp/hive-gethrelay-test.log; then
+                  --results-root="$RESULTS_DIR" 2>&1 | tee /tmp/hive-gethrelay-test.log; then
             echo "✓ gethrelay:local succeeded!"
+            echo ""
+            echo "Results saved to: $RESULTS_DIR"
+            find "$RESULTS_DIR" -type f | head -10
             exit 0
           else
             echo ""
@@ -391,11 +398,29 @@ jobs:
             # Adapt geth.sh to use gethrelay
             sed -i 's|exec geth|exec gethrelay|g' clients/go-ethereum/geth.sh
             
-            hive --sim=ethereum/rpc \
-                 --client=go-ethereum:local \
-                 --loglevel=5 \
-                 --sim.timelimit=15m \
-                 --results-root=./test-results
+            # Set results directory for fallback
+            RESULTS_DIR="./test-results"
+            mkdir -p "$RESULTS_DIR"
+            
+            echo "Running Hive with go-ethereum:local (using gethrelay)..."
+            if hive --sim=ethereum/rpc \
+                    --client=go-ethereum:local \
+                    --loglevel=5 \
+                    --sim.timelimit=15m \
+                    --results-root="$RESULTS_DIR" 2>&1 | tee /tmp/hive-goethereum-test.log; then
+              echo ""
+              echo "✓ Tests completed successfully!"
+              echo "Results saved to: $RESULTS_DIR"
+              find "$RESULTS_DIR" -type f | head -10
+              echo ""
+              echo "Directory structure:"
+              ls -laR "$RESULTS_DIR" | head -30
+            else
+              echo "✗ Tests failed"
+              echo "Last 50 lines of log:"
+              tail -50 /tmp/hive-goethereum-test.log
+              exit 1
+            fi
           fi
         continue-on-error: false
 
@@ -404,13 +429,21 @@ jobs:
         run: |
           echo "=== Running devp2p tests ==="
           echo ""
+          
+          # Set results directory
+          RESULTS_DIR="./test-results-devp2p"
+          mkdir -p "$RESULTS_DIR"
+          
           # Try gethrelay:local first, fallback to go-ethereum:local if needed
           if hive --sim=devp2p \
                   --client=gethrelay:local \
                   --loglevel=5 \
                   --sim.timelimit=15m \
-                  --results-root=./test-results-devp2p 2>&1 | tee /tmp/hive-devp2p-test.log; then
+                  --results-root="$RESULTS_DIR" 2>&1 | tee /tmp/hive-devp2p-test.log; then
             echo "✓ gethrelay:local succeeded for devp2p!"
+            echo ""
+            echo "Results saved to: $RESULTS_DIR"
+            find "$RESULTS_DIR" -type f | head -10
             exit 0
           else
             echo ""
@@ -437,11 +470,29 @@ jobs:
               sed -i 's|exec geth|exec gethrelay|g' clients/go-ethereum/geth.sh
             fi
             
-            hive --sim=devp2p \
-                 --client=go-ethereum:local \
-                 --loglevel=5 \
-                 --sim.timelimit=15m \
-                 --results-root=./test-results
+            # Set results directory for fallback
+            RESULTS_DIR="./test-results"
+            mkdir -p "$RESULTS_DIR"
+            
+            echo "Running Hive with go-ethereum:local (using gethrelay)..."
+            if hive --sim=devp2p \
+                    --client=go-ethereum:local \
+                    --loglevel=5 \
+                    --sim.timelimit=15m \
+                    --results-root="$RESULTS_DIR" 2>&1 | tee /tmp/hive-devp2p-goethereum.log; then
+              echo ""
+              echo "✓ Tests completed successfully!"
+              echo "Results saved to: $RESULTS_DIR"
+              find "$RESULTS_DIR" -type f | head -10
+              echo ""
+              echo "Directory structure:"
+              ls -laR "$RESULTS_DIR" | head -30
+            else
+              echo "✗ Tests failed"
+              echo "Last 50 lines of log:"
+              tail -50 /tmp/hive-devp2p-goethereum.log
+              exit 1
+            fi
           fi
         continue-on-error: false
 
@@ -465,53 +516,104 @@ jobs:
           
           # Find all test result directories
           echo "=== Searching for test results ==="
-          find . -type d -name "test-results*" 2>/dev/null | head -10
-          find . -name "simulator.log" 2>/dev/null | head -10
+          echo "Current directory: $(pwd)"
+          echo ""
+          echo "All test-results directories:"
+          find . -type d -name "test-results*" 2>/dev/null | head -20
+          echo ""
+          echo "All simulator.log files:"
+          find . -name "simulator.log" 2>/dev/null | head -20
+          echo ""
+          echo "All .log files:"
+          find . -name "*.log" -type f 2>/dev/null | head -20
           echo ""
           
-          # Check RPC test results
+          # Check workspace directory (Hive default)
+          if [ -d "workspace/logs" ]; then
+            echo "Found Hive workspace/logs directory"
+            find workspace/logs -type f | head -10
+          fi
+          echo ""
+          
+          # Check RPC test results in multiple locations
           echo "### RPC Tests" >> $GITHUB_STEP_SUMMARY
-          RPC_RESULTS=$(find . -path "*/test-results*/*/simulator.log" -o -path "*/test-results-rpc*/*/simulator.log" 2>/dev/null | head -1)
+          RPC_RESULTS=""
+          for dir in "./test-results-rpc" "./test-results" "workspace/logs"; do
+            if [ -d "$dir" ]; then
+              RESULT_FILE=$(find "$dir" -name "simulator.log" -type f 2>/dev/null | head -1)
+              if [ -n "$RESULT_FILE" ] && [ -f "$RESULT_FILE" ]; then
+                RPC_RESULTS="$RESULT_FILE"
+                break
+              fi
+            fi
+          done
+          
           if [ -n "$RPC_RESULTS" ] && [ -f "$RPC_RESULTS" ]; then
             echo "Found RPC results at: $RPC_RESULTS" >> $GITHUB_STEP_SUMMARY
             PASSED=$(grep -c "pass=true" "$RPC_RESULTS" 2>/dev/null || echo "0")
             FAILED=$(grep -c "pass=false" "$RPC_RESULTS" 2>/dev/null || echo "0")
+            TOTAL=$(grep -c "pass=" "$RPC_RESULTS" 2>/dev/null || echo "0")
+            echo "- Total: $TOTAL" >> $GITHUB_STEP_SUMMARY
             echo "- Passed: $PASSED" >> $GITHUB_STEP_SUMMARY
             echo "- Failed: $FAILED" >> $GITHUB_STEP_SUMMARY
-            if [ "$PASSED" -gt 0 ] || [ "$FAILED" -gt 0 ]; then
+            if [ "$TOTAL" -gt 0 ]; then
               echo "✅ Tests completed" >> $GITHUB_STEP_SUMMARY
             else
-              echo "⚠️ No test results found in log" >> $GITHUB_STEP_SUMMARY
+              echo "⚠️ Log file exists but no pass/fail entries found" >> $GITHUB_STEP_SUMMARY
+              echo "Sample log content:" >> $GITHUB_STEP_SUMMARY
+              head -20 "$RPC_RESULTS" | sed 's/^/  /' >> $GITHUB_STEP_SUMMARY
             fi
           else
             echo "❌ No RPC test results found" >> $GITHUB_STEP_SUMMARY
+            echo "Searched in: test-results-rpc, test-results, workspace/logs" >> $GITHUB_STEP_SUMMARY
           fi
           echo "" >> $GITHUB_STEP_SUMMARY
           
-          # Check devp2p test results
+          # Check devp2p test results in multiple locations
           echo "### devp2p Tests" >> $GITHUB_STEP_SUMMARY
-          DEVP2P_RESULTS=$(find . -path "*/test-results*/*/simulator.log" -o -path "*/test-results-devp2p*/*/simulator.log" 2>/dev/null | head -1)
+          DEVP2P_RESULTS=""
+          for dir in "./test-results-devp2p" "./test-results" "workspace/logs"; do
+            if [ -d "$dir" ]; then
+              RESULT_FILE=$(find "$dir" -name "simulator.log" -type f 2>/dev/null | head -1)
+              if [ -n "$RESULT_FILE" ] && [ -f "$RESULT_FILE" ]; then
+                DEVP2P_RESULTS="$RESULT_FILE"
+                break
+              fi
+            fi
+          done
+          
           if [ -n "$DEVP2P_RESULTS" ] && [ -f "$DEVP2P_RESULTS" ]; then
             echo "Found devp2p results at: $DEVP2P_RESULTS" >> $GITHUB_STEP_SUMMARY
             PASSED=$(grep -c "pass=true" "$DEVP2P_RESULTS" 2>/dev/null || echo "0")
             FAILED=$(grep -c "pass=false" "$DEVP2P_RESULTS" 2>/dev/null || echo "0")
+            TOTAL=$(grep -c "pass=" "$DEVP2P_RESULTS" 2>/dev/null || echo "0")
+            echo "- Total: $TOTAL" >> $GITHUB_STEP_SUMMARY
             echo "- Passed: $PASSED" >> $GITHUB_STEP_SUMMARY
             echo "- Failed: $FAILED" >> $GITHUB_STEP_SUMMARY
-            if [ "$PASSED" -gt 0 ] || [ "$FAILED" -gt 0 ]; then
+            if [ "$TOTAL" -gt 0 ]; then
               echo "✅ Tests completed" >> $GITHUB_STEP_SUMMARY
             else
-              echo "⚠️ No test results found in log" >> $GITHUB_STEP_SUMMARY
+              echo "⚠️ Log file exists but no pass/fail entries found" >> $GITHUB_STEP_SUMMARY
+              echo "Sample log content:" >> $GITHUB_STEP_SUMMARY
+              head -20 "$DEVP2P_RESULTS" | sed 's/^/  /' >> $GITHUB_STEP_SUMMARY
             fi
           else
             echo "❌ No devp2p test results found" >> $GITHUB_STEP_SUMMARY
+            echo "Searched in: test-results-devp2p, test-results, workspace/logs" >> $GITHUB_STEP_SUMMARY
           fi
           echo "" >> $GITHUB_STEP_SUMMARY
           
           # Show any available log files
           echo "### Available Log Files" >> $GITHUB_STEP_SUMMARY
-          find . -name "*.log" -type f 2>/dev/null | head -10 | while read logfile; do
-            echo "- \`$logfile\`" >> $GITHUB_STEP_SUMMARY
-          done || echo "No log files found" >> $GITHUB_STEP_SUMMARY
+          LOG_COUNT=$(find . -name "*.log" -type f 2>/dev/null | wc -l)
+          if [ "$LOG_COUNT" -gt 0 ]; then
+            find . -name "*.log" -type f 2>/dev/null | head -15 | while read logfile; do
+              SIZE=$(du -h "$logfile" 2>/dev/null | cut -f1)
+              echo "- \`$logfile\` ($SIZE)" >> $GITHUB_STEP_SUMMARY
+            done
+          else
+            echo "No log files found" >> $GITHUB_STEP_SUMMARY
+          fi
 
   notify-success:
     name: Notify Success
