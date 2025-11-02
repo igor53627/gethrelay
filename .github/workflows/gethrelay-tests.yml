@@ -557,6 +557,34 @@ jobs:
               echo "Checking available simulators..."
               echo "Simulators directory:"
               ls -la simulators/ 2>/dev/null | head -10 || echo "Simulators directory not found"
+              echo ""
+              echo "=== CRITICAL: Analyzing why no results were produced ==="
+              echo ""
+              echo "Hive exit code: $HIVE_EXIT_CODE"
+              echo ""
+              echo "Checking if Hive actually started simulators..."
+              if grep -qi "simulator\|starting\|running" /tmp/hive-goethereum-test.log; then
+                echo "✓ Hive output mentions simulators"
+                grep -i "simulator\|starting\|running" /tmp/hive-goethereum-test.log | head -10
+              else
+                echo "✗ No simulator-related output found!"
+                echo "This suggests Hive may not have found or started any simulators"
+              fi
+              echo ""
+              echo "Checking for client-related output..."
+              grep -i "client\|gethrelay\|go-ethereum" /tmp/hive-goethereum-test.log | head -10 || echo "No client mentions found"
+              echo ""
+              echo "=== IMPORTANT: Since no results were found, this is likely a configuration issue ==="
+              echo "Possible causes:"
+              echo "  1. Simulators not found (check simulator directory)"
+              echo "  2. Client not recognized (check client directory)"
+              echo "  3. Tests completed but didn't produce output (check Hive output above)"
+              echo ""
+              # Don't fail here - let the diagnostics step show what happened
+            else
+              echo ""
+              echo "✓ Results directory exists and contains files!"
+              find "$RESULTS_DIR" -type f | head -10
             fi
           fi
         continue-on-error: false
@@ -659,7 +687,7 @@ jobs:
           ls -la | head -20
           echo ""
           echo "3. Searching for test-results directories:"
-          find . -type d -name "*test*" -o -name "*result*" 2>/dev/null | head -20
+          find . -type d \( -name "*test*" -o -name "*result*" \) 2>/dev/null | head -20
           echo ""
           echo "4. All .log files anywhere:"
           find . -name "*.log" -type f 2>/dev/null | head -30
@@ -668,6 +696,8 @@ jobs:
           if [ -d "workspace" ]; then
             echo "✓ workspace exists"
             find workspace -type f 2>/dev/null | head -20
+            echo "Workspace structure:"
+            tree workspace -L 3 2>/dev/null || find workspace -type d | head -20
           else
             echo "✗ workspace does not exist"
           fi
@@ -680,9 +710,28 @@ jobs:
           echo ""
           echo "8. Hive log files in /tmp:"
           ls -lah /tmp/hive*.log 2>/dev/null || echo "No hive log files in /tmp"
+          if [ -f /tmp/hive-goethereum-test.log ]; then
+            echo "RPC test log size: $(wc -l < /tmp/hive-goethereum-test.log) lines"
+          fi
+          if [ -f /tmp/hive-devp2p-goethereum.log ]; then
+            echo "devp2p test log size: $(wc -l < /tmp/hive-devp2p-goethereum.log) lines"
+          fi
           echo ""
           echo "9. Docker containers (Hive might leave containers):"
           docker ps -a | grep -E "(hive|gethrelay|ethereum)" | head -10 || echo "No relevant containers"
+          echo ""
+          echo "10. Check if simulators directory exists and what's in it:"
+          if [ -d "simulators" ]; then
+            echo "Simulators found:"
+            find simulators -maxdepth 2 -type d | head -30
+            echo ""
+            echo "Checking if ethereum/rpc exists:"
+            test -d "simulators/ethereum/rpc" && echo "✓ simulators/ethereum/rpc exists" || echo "✗ simulators/ethereum/rpc NOT found"
+            echo "Checking if devp2p exists:"
+            test -d "simulators/devp2p" && echo "✓ simulators/devp2p exists" || echo "✗ simulators/devp2p NOT found"
+          else
+            echo "✗ Simulators directory does not exist!"
+          fi
           echo ""
           
       - name: Test summary
