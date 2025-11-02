@@ -733,10 +733,17 @@ jobs:
             echo ""
             
             # Run Hive using client-override instead of modifying Dockerfile
-            # This tells Hive to use our gethrelay image for the go-ethereum client
+            # The syntax is: --client-override=CLIENT_NAME=IMAGE_TAG
+            # This tells Hive: "when you need CLIENT_NAME, use this IMAGE_TAG instead"
             echo "Running Hive tests with client-override..."
             echo "Using: --client-override=go-ethereum:local=hive/clients/go-ethereum:local"
+            echo "This tells Hive to use our built image for go-ethereum:local client"
             set +e  # Don't exit on error so we can inspect results
+            
+            # First, let's verify the image exists
+            echo "Verifying override image exists:"
+            docker images | grep -E "hive/clients/go-ethereum:local" || docker images | head -10
+            
             hive --sim=ethereum/rpc-compat \
                  --client=go-ethereum:local \
                  --client-override=go-ethereum:local=hive/clients/go-ethereum:local \
@@ -745,6 +752,11 @@ jobs:
                  --results-root="$RESULTS_DIR" 2>&1 | tee /tmp/hive-goethereum-test.log
             HIVE_EXIT_CODE=$?
             set -e
+            
+            echo ""
+            echo "Hive command exit code: $HIVE_EXIT_CODE"
+            echo "First 20 lines of output:"
+            head -20 /tmp/hive-goethereum-test.log || echo "Log file empty"
             
             echo ""
             echo "Hive exit code: $HIVE_EXIT_CODE"
