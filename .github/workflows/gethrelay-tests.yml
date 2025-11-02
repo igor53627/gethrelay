@@ -598,6 +598,7 @@ jobs:
       - name: Try gethrelay:local first, then fallback to go-ethereum
         working-directory: /tmp/hive
         run: |
+          set -x  # Enable debug output
           echo "=== Attempt 1: Using gethrelay:local ==="
           echo ""
           echo "Verifying client setup:"
@@ -613,36 +614,49 @@ jobs:
           
           # Try gethrelay:local first
           echo "Attempting to run tests with gethrelay:local..."
+          echo "This will likely fail with 'unknown client', that's expected"
           set +e  # Don't exit on error so we can try fallback
           hive --sim=ethereum/rpc-compat \
                   --client=gethrelay:local \
                   --loglevel=5 \
                   --sim.timelimit=15m \
-                  --results-root="$RESULTS_DIR" 2>&1 | tee /tmp/hive-gethrelay-test.log
+                  --results-root="$RESULTS_DIR" > /tmp/hive-gethrelay-test.log 2>&1
           HIVE_EXIT_CODE=$?
+          echo "gethrelay:local attempt exit code: $HIVE_EXIT_CODE"
+          cat /tmp/hive-gethrelay-test.log
           set -e
           
           if [ $HIVE_EXIT_CODE -eq 0 ]; then
-            echo "✓ gethrelay:local succeeded!"
+            echo "✓ gethrelay:local succeeded! (unexpected but great!)"
             echo ""
             echo "Results saved to: $RESULTS_DIR"
             find "$RESULTS_DIR" -type f | head -10
             exit 0
-          else
-            echo ""
-            echo "✗ gethrelay:local failed (exit code: $HIVE_EXIT_CODE)"
-            echo "Checking error:"
-            grep -i "unknown client" /tmp/hive-gethrelay-test.log || echo "  Error not related to client discovery"
-            cat /tmp/hive-gethrelay-test.log
-            echo ""
-            echo "=== Attempt 2: Workaround using go-ethereum:local ==="
-            echo ""
-            echo "Using go-ethereum client structure but with gethrelay image"
-            echo "This is a workaround until we fix client discovery"
-            echo ""
-            
-            # Modify go-ethereum Dockerfile.local to use our image
-            cp clients/go-ethereum/Dockerfile.local clients/go-ethereum/Dockerfile.local.backup
+          fi
+          
+          # If we get here, gethrelay:local failed - proceed with fallback
+          echo ""
+          echo "✗ gethrelay:local failed (exit code: $HIVE_EXIT_CODE) - this is expected"
+          echo "Full error output:"
+          cat /tmp/hive-gethrelay-test.log
+          echo ""
+          echo "=== PROCEEDING TO FALLBACK: go-ethereum:local ==="
+          echo ""
+          echo "This is the workaround - using go-ethereum client structure with gethrelay image"
+          echo ""
+          
+          # Verify go-ethereum client exists before modifying
+          if [ ! -d "clients/go-ethereum" ]; then
+            echo "❌ ERROR: clients/go-ethereum directory not found!"
+            echo "Available clients:"
+            ls -d clients/*/ 2>/dev/null || echo "No clients found"
+            exit 1
+          fi
+          
+          echo "Backing up original go-ethereum Dockerfile.local..."
+          cp clients/go-ethereum/Dockerfile.local clients/go-ethereum/Dockerfile.local.backup || {
+            echo "⚠️  No original Dockerfile.local to backup, creating new one"
+          }
             cat > clients/go-ethereum/Dockerfile.local << 'EOF'
           FROM ethereum/gethrelay:latest
           USER root
