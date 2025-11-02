@@ -732,11 +732,14 @@ jobs:
             hive --list 2>&1 | grep -i "go-ethereum\|client" | head -10 || echo "Hive --list command output (check above)"
             echo ""
             
-            # Run Hive and capture all output
-            echo "Running Hive tests..."
+            # Run Hive using client-override instead of modifying Dockerfile
+            # This tells Hive to use our gethrelay image for the go-ethereum client
+            echo "Running Hive tests with client-override..."
+            echo "Using: --client-override=go-ethereum:local=hive/clients/go-ethereum:local"
             set +e  # Don't exit on error so we can inspect results
             hive --sim=ethereum/rpc-compat \
                  --client=go-ethereum:local \
+                 --client-override=go-ethereum:local=hive/clients/go-ethereum:local \
                  --loglevel=5 \
                  --sim.timelimit=15m \
                  --results-root="$RESULTS_DIR" 2>&1 | tee /tmp/hive-goethereum-test.log
@@ -975,8 +978,10 @@ jobs:
             mkdir -p "$RESULTS_DIR"
             
             echo "Running Hive with go-ethereum:local (using gethrelay)..."
+            echo "Using: --client-override=go-ethereum:local=hive/clients/go-ethereum:local"
             if hive --sim=devp2p \
                     --client=go-ethereum:local \
+                    --client-override=go-ethereum:local=hive/clients/go-ethereum:local \
                     --loglevel=5 \
                     --sim.timelimit=15m \
                     --results-root="$RESULTS_DIR" 2>&1 | tee /tmp/hive-devp2p-goethereum.log; then
