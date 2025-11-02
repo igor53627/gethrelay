@@ -510,8 +510,14 @@ jobs:
             
             # Always show the full output to understand what happened
             echo ""
-            echo "=== Full Hive Output ==="
-            cat /tmp/hive-goethereum-test.log
+            echo "=== Full Hive Output (showing last 200 lines if too long) ==="
+            if [ -s /tmp/hive-goethereum-test.log ]; then
+              wc -l /tmp/hive-goethereum-test.log
+              tail -200 /tmp/hive-goethereum-test.log
+            else
+              echo "Log file is empty or doesn't exist!"
+              ls -la /tmp/hive*.log 2>/dev/null || echo "No log files in /tmp"
+            fi
             echo ""
             echo "=== Output Analysis ==="
             
@@ -641,6 +647,44 @@ jobs:
           if-no-files-found: warn
           compression-level: 0
 
+      - name: Comprehensive diagnostics before summary
+        if: always()
+        working-directory: /tmp/hive
+        run: |
+          echo "=== COMPREHENSIVE DIAGNOSTICS ==="
+          echo ""
+          echo "1. Current working directory: $(pwd)"
+          echo ""
+          echo "2. All directories in current location:"
+          ls -la | head -20
+          echo ""
+          echo "3. Searching for test-results directories:"
+          find . -type d -name "*test*" -o -name "*result*" 2>/dev/null | head -20
+          echo ""
+          echo "4. All .log files anywhere:"
+          find . -name "*.log" -type f 2>/dev/null | head -30
+          echo ""
+          echo "5. Workspace directory (Hive default):"
+          if [ -d "workspace" ]; then
+            echo "✓ workspace exists"
+            find workspace -type f 2>/dev/null | head -20
+          else
+            echo "✗ workspace does not exist"
+          fi
+          echo ""
+          echo "6. All directories recursively (max depth 3):"
+          find . -maxdepth 3 -type d | grep -E "(test|result|log|workspace)" | head -20
+          echo ""
+          echo "7. Recent files modified (last 10 minutes):"
+          find . -type f -mmin -10 2>/dev/null | head -20
+          echo ""
+          echo "8. Hive log files in /tmp:"
+          ls -lah /tmp/hive*.log 2>/dev/null || echo "No hive log files in /tmp"
+          echo ""
+          echo "9. Docker containers (Hive might leave containers):"
+          docker ps -a | grep -E "(hive|gethrelay|ethereum)" | head -10 || echo "No relevant containers"
+          echo ""
+          
       - name: Test summary
         if: always()
         working-directory: /tmp/hive
