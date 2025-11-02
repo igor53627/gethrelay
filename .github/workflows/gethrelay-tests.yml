@@ -103,7 +103,14 @@ jobs:
       - name: Generate cache key
         id: cache-key
         run: |
-          echo "key=gethrelay-$(git rev-parse HEAD:cmd/gethrelay/Dockerfile.gethrelay)-$(git rev-parse HEAD:go.mod)-$(git rev-parse HEAD:go.sum)" >> $GITHUB_OUTPUT
+          # More granular cache key based on actual file content hashes
+          DOCKERFILE_HASH=$(git hash-object cmd/gethrelay/Dockerfile.gethrelay 2>/dev/null || sha256sum cmd/gethrelay/Dockerfile.gethrelay | cut -d' ' -f1)
+          GOMOD_HASH=$(git hash-object go.mod 2>/dev/null || sha256sum go.mod | cut -d' ' -f1)
+          GOSUM_HASH=$(git hash-object go.sum 2>/dev/null || sha256sum go.sum | cut -d' ' -f1)
+          echo "key=gethrelay-${DOCKERFILE_HASH}-${GOMOD_HASH}-${GOSUM_HASH}" >> $GITHUB_OUTPUT
+          echo "dockerfile-hash=${DOCKERFILE_HASH}" >> $GITHUB_OUTPUT
+          echo "gomod-hash=${GOMOD_HASH}" >> $GITHUB_OUTPUT
+          echo "gosum-hash=${GOSUM_HASH}" >> $GITHUB_OUTPUT
 
       - name: Build Docker image
         uses: docker/build-push-action@v5
@@ -115,11 +122,15 @@ jobs:
           tags: ethereum/gethrelay:latest,ethereum/gethrelay:${{ github.sha }}
           load: true
           cache-from: |
+            type=gha,scope=gethrelay-deps-${{ steps.cache-key.outputs.gomod-hash }}-${{ steps.cache-key.outputs.gosum-hash }}
             type=gha,scope=gethrelay-deps
-            type=gha,scope=gethrelay-builder
-            type=gha,scope=gethrelay
+            type=gha,mode=max,scope=gethrelay-builder-${{ steps.cache-key.outputs.dockerfile-hash }}
+            type=gha,mode=max,scope=gethrelay-builder
+            type=gha,mode=max,scope=gethrelay
           cache-to: |
+            type=gha,mode=max,scope=gethrelay-deps-${{ steps.cache-key.outputs.gomod-hash }}-${{ steps.cache-key.outputs.gosum-hash }}
             type=gha,mode=max,scope=gethrelay-deps
+            type=gha,mode=max,scope=gethrelay-builder-${{ steps.cache-key.outputs.dockerfile-hash }}
             type=gha,mode=max,scope=gethrelay-builder
             type=gha,mode=max,scope=gethrelay
           build-args: |
@@ -182,10 +193,27 @@ jobs:
           echo "Verifying image loaded..."
           docker images | grep gethrelay
 
+      - name: Cache Hive binary
+        uses: actions/cache@v4
+        id: hive-cache
+        with:
+          path: /tmp/hive-binary
+          key: hive-${{ runner.os }}-${{ hashFiles('.github/workflows/gethrelay-tests.yml') }}
+          restore-keys: |
+            hive-${{ runner.os }}-
+
       - name: Set up Hive
         run: |
-          git clone --depth=1 https://github.com/ethereum/hive.git /tmp/hive
-          cd /tmp/hive && go build -o /usr/local/bin/hive .
+          if [ -f "/tmp/hive-binary/hive" ]; then
+            echo "Using cached Hive binary"
+            cp /tmp/hive-binary/hive /usr/local/bin/hive
+          else
+            echo "Building Hive from source"
+            git clone --depth=1 https://github.com/ethereum/hive.git /tmp/hive
+            cd /tmp/hive && go build -o /usr/local/bin/hive .
+            mkdir -p /tmp/hive-binary
+            cp /usr/local/bin/hive /tmp/hive-binary/hive
+          fi
           
       - name: Verify workflow file version
         run: |
