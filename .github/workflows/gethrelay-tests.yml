@@ -747,11 +747,15 @@ jobs:
             
             # Use the same approach as test-hive.sh:
             # --client=go-ethereum:local (base client for scripts/structure)
-            # --client-override=gethrelay:local=IMAGE (create new client pointing to our image)
+            # --client-override=gethrelay:local=IMAGE (create new client pointing to our BASE image)
             # --clients=gethrelay:local (actually use the new client)
+            # NOTE: Use ethereum/gethrelay:latest (base image) not the built client image
+            echo "Using base gethrelay image: ethereum/gethrelay:latest"
+            docker images | grep "ethereum/gethrelay" || echo "Base image not found!"
+            
             hive --sim=ethereum/rpc-compat \
                  --client=go-ethereum:local \
-                 --client-override=gethrelay:local=hive/clients/go-ethereum:local \
+                 --client-override=gethrelay:local=ethereum/gethrelay:latest \
                  --clients=gethrelay:local \
                  --loglevel=5 \
                  --sim.timelimit=15m \
@@ -997,11 +1001,12 @@ jobs:
             
             echo "Running Hive with gethrelay:local (using client-override)..."
             echo "Using same approach as test-hive.sh:"
-            echo "  --client-override=gethrelay:local=hive/clients/go-ethereum:local"
+            echo "  --client-override=gethrelay:local=ethereum/gethrelay:latest"
             echo "  --clients=gethrelay:local"
+            echo "NOTE: Using base image ethereum/gethrelay:latest (matches test-hive.sh)"
             if hive --sim=devp2p \
                     --client=go-ethereum:local \
-                    --client-override=gethrelay:local=hive/clients/go-ethereum:local \
+                    --client-override=gethrelay:local=ethereum/gethrelay:latest \
                     --clients=gethrelay:local \
                     --loglevel=5 \
                     --sim.timelimit=15m \
