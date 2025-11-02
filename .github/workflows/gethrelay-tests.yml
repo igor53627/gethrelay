@@ -580,6 +580,28 @@ jobs:
               echo "  2. Client not recognized (check client directory)"
               echo "  3. Tests completed but didn't produce output (check Hive output above)"
               echo ""
+              
+              # Show first and last 20 lines of Hive output for quick analysis
+              echo "=== First 20 lines of Hive output ==="
+              head -20 /tmp/hive-goethereum-test.log 2>/dev/null || echo "Log file not found"
+              echo ""
+              echo "=== Last 20 lines of Hive output ==="
+              tail -20 /tmp/hive-goethereum-test.log 2>/dev/null || echo "Log file not found"
+              echo ""
+              
+              # Check if this is a "no simulators found" scenario
+              if ! grep -qi "simulator\|test\|start" /tmp/hive-goethereum-test.log 2>/dev/null; then
+                echo "❌ CRITICAL: Hive output contains no simulator/test mentions!"
+                echo "This strongly suggests simulators were not found or did not start"
+                echo ""
+                echo "The Hive command that was run:"
+                echo "  hive --sim=ethereum/rpc --client=go-ethereum:local --loglevel=5 --sim.timelimit=15m --results-root=$RESULTS_DIR"
+                echo ""
+                echo "This likely means:"
+                echo "  - The simulator 'ethereum/rpc' doesn't exist"
+                echo "  - Or the simulator path/name is incorrect"
+                echo "  - Or Hive isn't finding simulators in the expected location"
+              fi
               # Don't fail here - let the diagnostics step show what happened
             else
               echo ""
