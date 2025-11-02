@@ -277,15 +277,15 @@ jobs:
             RPC_FOUND=false
             DEVP2P_FOUND=false
             
-            if [ -d "simulators/ethereum/rpc" ]; then
-              echo "✓ ethereum/rpc simulator found"
-              echo "✓ **ethereum/rpc:** Found" >> $GITHUB_STEP_SUMMARY
-              ls -la simulators/ethereum/rpc/ | head -10
+            if [ -d "simulators/ethereum/rpc-compat" ]; then
+              echo "✓ ethereum/rpc-compat simulator found"
+              echo "✓ **ethereum/rpc-compat:** Found" >> $GITHUB_STEP_SUMMARY
+              ls -la simulators/ethereum/rpc-compat/ | head -10
               RPC_FOUND=true
               SIMULATOR_FOUND=true
             else
-              echo "✗ ethereum/rpc simulator NOT found"
-              echo "❌ **ethereum/rpc:** NOT FOUND" >> $GITHUB_STEP_SUMMARY
+              echo "✗ ethereum/rpc-compat simulator NOT found"
+              echo "❌ **ethereum/rpc-compat:** NOT FOUND" >> $GITHUB_STEP_SUMMARY
               echo "Trying alternative paths..."
               ALTERNATIVES=$(find . -path "*/simulators/*rpc*" -type d 2>/dev/null | head -10)
               if [ -n "$ALTERNATIVES" ]; then
@@ -364,9 +364,9 @@ jobs:
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "**Required simulators status:**" >> $GITHUB_STEP_SUMMARY
             if [ "$RPC_FOUND" = false ]; then
-              echo "- ❌ \`ethereum/rpc\` - NOT FOUND" >> $GITHUB_STEP_SUMMARY
+              echo "- ❌ \`ethereum/rpc-compat\` - NOT FOUND" >> $GITHUB_STEP_SUMMARY
             else
-              echo "- ✓ \`ethereum/rpc\` - Found" >> $GITHUB_STEP_SUMMARY
+              echo "- ✓ \`ethereum/rpc-compat\` - Found" >> $GITHUB_STEP_SUMMARY
             fi
             if [ "$DEVP2P_FOUND" = false ]; then
               echo "- ❌ \`devp2p\` - NOT FOUND" >> $GITHUB_STEP_SUMMARY
@@ -382,7 +382,7 @@ jobs:
             echo '```' >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "**Solution:**" >> $GITHUB_STEP_SUMMARY
-            echo "1. Review the list above to find simulators that match \`ethereum/rpc\` and \`devp2p\` functionality" >> $GITHUB_STEP_SUMMARY
+            echo "1. Review the list above to find simulators that match \`ethereum/rpc-compat\` and \`devp2p\` functionality" >> $GITHUB_STEP_SUMMARY
             echo "2. Update the \`--sim\` flags in the workflow to use the correct simulator names" >> $GITHUB_STEP_SUMMARY
             echo "3. If simulators don't exist, they may need to be installed separately or use a different Hive version" >> $GITHUB_STEP_SUMMARY
             echo ""
@@ -395,7 +395,7 @@ jobs:
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "✓ **All required simulators found**" >> $GITHUB_STEP_SUMMARY
             if [ "$RPC_FOUND" = true ]; then
-              echo "- ✓ \`ethereum/rpc\`" >> $GITHUB_STEP_SUMMARY
+              echo "- ✓ \`ethereum/rpc-compat\`" >> $GITHUB_STEP_SUMMARY
             fi
             if [ "$DEVP2P_FOUND" = true ]; then
               echo "- ✓ \`devp2p\`" >> $GITHUB_STEP_SUMMARY
@@ -574,7 +574,7 @@ jobs:
           mkdir -p "$RESULTS_DIR"
           
           # Try gethrelay:local first
-          if hive --sim=ethereum/rpc \
+          if hive --sim=ethereum/rpc-compat \
                   --client=gethrelay:local \
                   --loglevel=5 \
                   --sim.timelimit=15m \
@@ -624,7 +624,7 @@ jobs:
             
             # Run Hive and capture all output
             set +e  # Don't exit on error so we can inspect results
-            hive --sim=ethereum/rpc \
+            hive --sim=ethereum/rpc-compat \
                  --client=go-ethereum:local \
                  --loglevel=5 \
                  --sim.timelimit=15m \
@@ -751,11 +751,11 @@ jobs:
                 echo "" >> $GITHUB_STEP_SUMMARY
                 echo "The Hive command that was run:" >> $GITHUB_STEP_SUMMARY
                 echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-                echo "hive --sim=ethereum/rpc --client=go-ethereum:local --loglevel=5 --sim.timelimit=15m --results-root=$RESULTS_DIR" >> $GITHUB_STEP_SUMMARY
+                echo "hive --sim=ethereum/rpc-compat --client=go-ethereum:local --loglevel=5 --sim.timelimit=15m --results-root=$RESULTS_DIR" >> $GITHUB_STEP_SUMMARY
                 echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
                 echo "" >> $GITHUB_STEP_SUMMARY
                 echo "**This likely means:**" >> $GITHUB_STEP_SUMMARY
-                echo "- The simulator \`ethereum/rpc\` doesn't exist" >> $GITHUB_STEP_SUMMARY
+                echo "- The simulator \`ethereum/rpc-compat\` doesn't exist" >> $GITHUB_STEP_SUMMARY
                 echo "- Or the simulator path/name is incorrect" >> $GITHUB_STEP_SUMMARY
                 echo "- Or Hive isn't finding simulators in the expected location" >> $GITHUB_STEP_SUMMARY
                 echo "" >> $GITHUB_STEP_SUMMARY
@@ -909,8 +909,8 @@ jobs:
             echo "Simulators found:"
             find simulators -maxdepth 2 -type d | head -30
             echo ""
-            echo "Checking if ethereum/rpc exists:"
-            test -d "simulators/ethereum/rpc" && echo "✓ simulators/ethereum/rpc exists" || echo "✗ simulators/ethereum/rpc NOT found"
+            echo "Checking if ethereum/rpc-compat exists:"
+            test -d "simulators/ethereum/rpc-compat" && echo "✓ simulators/ethereum/rpc-compat exists" || echo "✗ simulators/ethereum/rpc-compat NOT found"
             echo "Checking if devp2p exists:"
             test -d "simulators/devp2p" && echo "✓ simulators/devp2p exists" || echo "✗ simulators/devp2p NOT found"
           else

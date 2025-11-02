@@ -66,7 +66,7 @@ echo -e "${YELLOW}Running devp2p tests...${NC}"
 "$HIVE_BIN" --client=go-ethereum:local \
      --client-override=gethrelay:local=ethereum/gethrelay:local \
      --sim=devp2p \
-     --sim=ethereum/rpc \
+     --sim=ethereum/rpc-compat \
      --loglevel=5 \
      --clients=gethrelay:local
 
