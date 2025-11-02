@@ -978,12 +978,22 @@ jobs:
           # Check RPC test results in multiple locations
           echo "### RPC Tests" >> $GITHUB_STEP_SUMMARY
           RPC_RESULTS=""
-          for dir in "./test-results-rpc" "./test-results" "workspace/logs"; do
-            if [ -d "$dir" ]; then
-              RESULT_FILE=$(find "$dir" -name "simulator.log" -type f 2>/dev/null | head -1)
+          RPC_DIRS=("./test-results-rpc" "./test-results" "workspace/logs" "./workspace/logs")
+          
+          # Also check if results might be in subdirectories
+          for base_dir in "${RPC_DIRS[@]}"; do
+            if [ -d "$base_dir" ]; then
+              # Check for simulator.log in any subdirectory
+              RESULT_FILE=$(find "$base_dir" -name "simulator.log" -type f 2>/dev/null | head -1)
               if [ -n "$RESULT_FILE" ] && [ -f "$RESULT_FILE" ]; then
                 RPC_RESULTS="$RESULT_FILE"
+                echo "✓ Found RPC results at: $RESULT_FILE" >> $GITHUB_STEP_SUMMARY
                 break
+              fi
+              # Also check for any test result files
+              if [ -n "$(find "$base_dir" -type f 2>/dev/null | head -1)" ]; then
+                echo "Found files in $base_dir:" >> $GITHUB_STEP_SUMMARY
+                find "$base_dir" -type f | head -5 >> $GITHUB_STEP_SUMMARY
               fi
             fi
           done
@@ -1009,15 +1019,25 @@ jobs:
           fi
           echo "" >> $GITHUB_STEP_SUMMARY
           
-          # Check devp2p test results in multiple locations
+          # Check devp2p test results in multiple locations  
           echo "### devp2p Tests" >> $GITHUB_STEP_SUMMARY
           DEVP2P_RESULTS=""
-          for dir in "./test-results-devp2p" "./test-results" "workspace/logs"; do
-            if [ -d "$dir" ]; then
-              RESULT_FILE=$(find "$dir" -name "simulator.log" -type f 2>/dev/null | head -1)
+          DEVP2P_DIRS=("./test-results-devp2p" "./test-results" "workspace/logs" "./workspace/logs")
+          
+          # Also check if results might be in subdirectories
+          for base_dir in "${DEVP2P_DIRS[@]}"; do
+            if [ -d "$base_dir" ]; then
+              # Check for simulator.log in any subdirectory
+              RESULT_FILE=$(find "$base_dir" -name "simulator.log" -type f 2>/dev/null | head -1)
               if [ -n "$RESULT_FILE" ] && [ -f "$RESULT_FILE" ]; then
                 DEVP2P_RESULTS="$RESULT_FILE"
+                echo "✓ Found devp2p results at: $RESULT_FILE" >> $GITHUB_STEP_SUMMARY
                 break
+              fi
+              # Also check for any test result files
+              if [ -n "$(find "$base_dir" -type f 2>/dev/null | head -1)" ]; then
+                echo "Found files in $base_dir:" >> $GITHUB_STEP_SUMMARY
+                find "$base_dir" -type f | head -5 >> $GITHUB_STEP_SUMMARY
               fi
             fi
           done
@@ -1043,7 +1063,7 @@ jobs:
           fi
           echo "" >> $GITHUB_STEP_SUMMARY
           
-          # Show any available log files
+          # Show any available log files (including captured Hive logs)
           echo "### Available Log Files" >> $GITHUB_STEP_SUMMARY
           LOG_COUNT=$(find . -name "*.log" -type f 2>/dev/null | wc -l)
           if [ "$LOG_COUNT" -gt 0 ]; then
@@ -1051,8 +1071,32 @@ jobs:
               SIZE=$(du -h "$logfile" 2>/dev/null | cut -f1)
               echo "- \`$logfile\` ($SIZE)" >> $GITHUB_STEP_SUMMARY
             done
-          else
+          fi
+          
+          # Also check captured Hive test logs in /tmp
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Captured Hive Test Logs" >> $GITHUB_STEP_SUMMARY
+          for log in /tmp/hive-goethereum-test.log /tmp/hive-devp2p-goethereum.log /tmp/hive-gethrelay-test.log /tmp/hive-devp2p-test.log; do
+            if [ -f "$log" ] && [ -s "$log" ]; then
+              SIZE=$(du -h "$log" 2>/dev/null | cut -f1)
+              LINES=$(wc -l < "$log" 2>/dev/null || echo "0")
+              echo "- \`$log\` ($SIZE, $LINES lines)" >> $GITHUB_STEP_SUMMARY
+              # Show key information from the log
+              if grep -qi "error\|failed\|unknown" "$log"; then
+                echo "  ⚠️ Contains errors:" >> $GITHUB_STEP_SUMMARY
+                grep -i "error\|failed\|unknown" "$log" | head -3 | sed 's/^/    - /' >> $GITHUB_STEP_SUMMARY
+              fi
+              if grep -qi "simulator.*started\|running.*test\|test.*completed" "$log"; then
+                echo "  ✓ Contains test execution markers" >> $GITHUB_STEP_SUMMARY
+              fi
+            fi
+          done
+          
+          if [ "$LOG_COUNT" -eq 0 ] && [ ! -f /tmp/hive-goethereum-test.log ] && [ ! -f /tmp/hive-devp2p-goethereum.log ]; then
             echo "No log files found" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**This suggests Hive tests did not execute or failed immediately.**" >> $GITHUB_STEP_SUMMARY
+            echo "Check the test execution steps above for error messages." >> $GITHUB_STEP_SUMMARY
           fi
 
   notify-success:
