@@ -288,22 +288,34 @@ jobs:
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "## ❌ CRITICAL ISSUE DETECTED" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
-            echo "**Simulators NOT FOUND!** This is why no tests are running." >> $GITHUB_STEP_SUMMARY
+            echo "### Root Cause: Simulators NOT FOUND" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
-            echo "The simulators \`ethereum/rpc\` and \`devp2p\` do not exist in the expected location." >> $GITHUB_STEP_SUMMARY
-            echo "Hive cannot run tests without simulators." >> $GITHUB_STEP_SUMMARY
+            echo "**Required simulators:**" >> $GITHUB_STEP_SUMMARY
+            echo "- ❌ \`ethereum/rpc\` - NOT FOUND" >> $GITHUB_STEP_SUMMARY
+            echo "- ❌ \`devp2p\` - NOT FOUND" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
-            echo "**All available simulators:**" >> $GITHUB_STEP_SUMMARY
+            echo "**Impact:** Hive cannot run tests without simulators. Tests will complete with no results." >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**All available simulators in repository:**" >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
-            find simulators -maxdepth 2 -type d 2>/dev/null | sed 's|simulators/||' | grep -v "^$" | head -30 >> $GITHUB_STEP_SUMMARY || echo "Could not list simulators" >> $GITHUB_STEP_SUMMARY
+            find simulators -maxdepth 2 -type d 2>/dev/null | sed 's|simulators/||' | grep -v "^$" | sort | head -50 >> $GITHUB_STEP_SUMMARY || echo "Could not list simulators" >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Solution:**" >> $GITHUB_STEP_SUMMARY
+            echo "1. Check if simulators have different names/paths in this Hive version" >> $GITHUB_STEP_SUMMARY
+            echo "2. Update the \`--sim\` flag to match actual simulator names" >> $GITHUB_STEP_SUMMARY
+            echo "3. Or install/configure the required simulators" >> $GITHUB_STEP_SUMMARY
             echo ""
             echo "❌ FAILING STEP: Simulators required for testing are missing!"
             echo "This step will fail to make the issue visible in the workflow."
+            echo ""
+            echo "See the Step Summary above for available simulators and solution."
             exit 1
           else
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "✓ **All required simulators found**" >> $GITHUB_STEP_SUMMARY
+            echo "- ✓ \`ethereum/rpc\`" >> $GITHUB_STEP_SUMMARY
+            echo "- ✓ \`devp2p\`" >> $GITHUB_STEP_SUMMARY
           fi
 
       - name: Setup Hive client configuration
