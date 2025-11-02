@@ -240,6 +240,14 @@ jobs:
           echo ""
           echo "4. Testing Hive help/usage:"
           hive --help 2>&1 | head -20 || echo "Cannot get help"
+          echo ""
+          echo "5. Testing if Hive can list clients:"
+          # Some versions of Hive support listing
+          hive --list 2>&1 | head -20 || echo "List command not available or failed"
+          echo ""
+          echo "6. Current directory and structure:"
+          pwd
+          ls -la | head -10
 
       - name: Setup Hive client configuration
         run: |
@@ -625,10 +633,13 @@ jobs:
         with:
           name: hive-test-results
           path: |
-            /tmp/hive/**/test-results*/
+            /tmp/hive/test-results*
+            /tmp/hive/test-results*/**
             /tmp/hive/**/*.log
+            /tmp/hive/workspace/logs/**
           retention-days: 7
           if-no-files-found: warn
+          compression-level: 0
 
       - name: Test summary
         if: always()
