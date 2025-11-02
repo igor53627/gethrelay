@@ -1,14 +1,15 @@
-name: Gethrelay Tests
+name: Gethrelay Integration Tests
 
 on:
   push:
-    # Run on all branches (including feature branches) to test before merging
+    # Run on main/master branches only (integration tests are slower)
+    branches: [ master, main ]
     paths:
       - 'cmd/gethrelay/**'
       - 'eth/relay/**'
       - 'go.mod'
       - 'go.sum'
-      - '.github/workflows/gethrelay-tests.yml'
+      - '.github/workflows/gethrelay-integration-tests.yml'
   pull_request:
     # Run on PRs to main/master
     branches: [ master, main ]
@@ -17,7 +18,7 @@ on:
       - 'eth/relay/**'
       - 'go.mod'
       - 'go.sum'
-      - '.github/workflows/gethrelay-tests.yml'
+      - '.github/workflows/gethrelay-integration-tests.yml'
   workflow_dispatch:
     # Allow manual trigger from GitHub UI
     inputs:
@@ -53,39 +54,10 @@ jobs:
             *Workflow:* ${{ github.workflow }}
             
             [View Workflow](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
-  unit-tests:
-    name: Unit Tests
-    runs-on: ubuntu-latest
-    needs: [notify-start]
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          submodules: false
-
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: ${{ env.GO_VERSION }}
-          cache-dependency-path: go.sum
-
-      - name: Run unit tests
-        working-directory: ./cmd/gethrelay
-        run: |
-          go test -v -race -coverprofile=coverage.out -covermode=atomic .
-
-      - name: Upload coverage
-        uses: codecov/codecov-action@v4
-        if: always()
-        with:
-          file: ./cmd/gethrelay/coverage.out
-          flags: gethrelay
-          name: gethrelay-coverage
-
   build-image:
     name: Build Docker Image
     runs-on: ubuntu-latest
-    needs: [unit-tests]
+    needs: [notify-start]
     outputs:
       image: ${{ steps.meta.outputs.tags }}
       cache-key: ${{ steps.cache-key.outputs.key }}
