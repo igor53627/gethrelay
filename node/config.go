@@ -190,6 +190,9 @@ type Config struct {
 	// Requests using ip address directly are not affected
 	GraphQLVirtualHosts []string `toml:",omitempty"`
 
+	// Tor configures optional Tor hidden-service exposure for RPC endpoints.
+	Tor TorConfig `toml:"tor"`
+
 	// Logger is a custom logger to use with the p2p.Server.
 	Logger log.Logger `toml:",omitempty"`
 
@@ -211,6 +214,31 @@ type Config struct {
 	EnablePersonal bool `toml:"-"`
 
 	DBEngine string `toml:",omitempty"`
+}
+
+// TorConfig configures exposure of RPC endpoints through a Tor hidden service.
+type TorConfig struct {
+	// Enabled toggles the hidden service integration.
+	Enabled bool `toml:",omitempty"`
+
+	// ControlAddress is the Tor control-port address, defaults to 127.0.0.1:9051.
+	ControlAddress string `toml:"control_address,omitempty"`
+
+	// CookiePath points to the Tor control-port cookie for authentication. It may
+	// be relative to the node data directory.
+	CookiePath string `toml:"cookie_path,omitempty"`
+
+	// HiddenServiceDir stores the persisted onion service keys relative to the
+	// node data directory when not absolute.
+	HiddenServiceDir string `toml:"hidden_service_dir,omitempty"`
+
+	// HTTPPort overrides the virtual port advertised for the HTTP endpoint. Zero
+	// falls back to the actual listener port.
+	HTTPPort int `toml:"http_port,omitempty"`
+
+	// WSPort overrides the virtual port advertised for the WS endpoint. Zero falls
+	// back to the actual listener port.
+	WSPort int `toml:"ws_port,omitempty"`
 }
 
 // IPCEndpoint resolves an IPC endpoint based on a configured value, taking into

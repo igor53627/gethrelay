@@ -1,0 +1,37 @@
+name: tor-hidden-integration
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - node/**
+      - tests/torhidden/**
+      - docker/tor/**
+      - go.mod
+      - go.sum
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    env:
+      GETH_TOR_IMAGE: ghcr.io/${{ github.repository_owner }}/geth-tor-hidden-service:latest
+      TOR_INTEGRATION_TEST: "1"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Ensure Tor image available
+        run: |
+          docker pull $GETH_TOR_IMAGE
+
+      - name: Run hidden service integration test
+        run: |
+          go test ./tests/torhidden -run TestHiddenServiceIntegration -timeout 10m

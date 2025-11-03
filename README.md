@@ -27,6 +27,12 @@ A lightweight Ethereum P2P relay node that forwards blockchain messages between 
 - Upstream proxying for all other RPC methods
 - Configurable upstream endpoint (default: `https://ethereum-rpc.publicnode.com`)
 
+### Tor Hidden RPC (experimental)
+- Optional Tor hidden-service exposure for HTTP/WS RPC endpoints
+- Onion address persisted under the datadir for stable URLs across restarts
+- Address announced via logs, stdout, and the `GETH_TOR_ONION` environment variable
+- GitHub Actions integration test spins up a Tor sidecar (built from source) and verifies RPC reachability through SOCKS
+
 ## Quick Start
 
 ### Building
@@ -146,6 +152,15 @@ gethrelay consists of:
 - **P2P Relay Backend** (`eth/relay/`) - Message forwarding between peers
 - **RPC Proxy** (`cmd/gethrelay/rpc_proxy.go`) - Request routing and handling
 - **Protocol Handlers** (`eth/protocols/eth/`) - ETH protocol message handling
+
+## Tor sidecar & hidden RPC
+
+- Tor Dockerfile: `docker/tor/Dockerfile`, built from official Tor sources with BuildKit caching.
+- Published image tag: `ghcr.io/<your-org>/geth-tor-hidden-service:latest` (built via `.github/workflows/tor-image.yml`).
+- Sidecar exposes `SOCKSPort 9150` and `ControlPort 9051` with cookie authentication written to `/data/control_auth_cookie`.
+- Share the `/data` volume with gethrelay so `tor/control_auth_cookie` (relative to the datadir) is available for control-port authentication.
+- When `Tor.Enabled` is true in `node.Config`, the node provisions a v3 onion service for the configured HTTP/WS endpoints, persists the private key, and publishes the address via stdout/logs and `GETH_TOR_ONION`.
+- Integration test: `go test ./tests/torhidden -run TestHiddenServiceIntegration` (requires `TOR_INTEGRATION_TEST=1` and `GETH_TOR_IMAGE` to be set to the pulled image).
 
 ## Contributing
 
