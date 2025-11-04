@@ -47,7 +47,7 @@ RUN useradd --system --home /var/lib/tor --shell /sbin/nologin tor && \
 	mkdir -p /data/state && \
 	chown -R tor:tor /etc/tor /var/lib/tor /data
 
-COPY torrc /etc/tor/torrc
+COPY docker/tor/torrc /etc/tor/torrc
 
 USER tor
 
