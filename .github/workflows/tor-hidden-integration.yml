@@ -35,9 +35,24 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Ensure Tor image available
+      - name: Check if Tor image exists
+        id: check-image
+        continue-on-error: true
         run: |
-          docker pull $GETH_TOR_IMAGE
+          if docker pull $GETH_TOR_IMAGE 2>&1; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "✅ Tor image exists and was pulled successfully"
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "⚠️ Tor image does not exist yet"
+          fi
+
+      - name: Build Tor image if not available
+        if: steps.check-image.outputs.exists != 'true'
+        run: |
+          echo "Building Tor image from docker/tor/Dockerfile..."
+          docker build -t $GETH_TOR_IMAGE -f docker/tor/Dockerfile .
+          echo "✅ Tor image built successfully"
 
       - name: Run hidden service integration test
         run: |
