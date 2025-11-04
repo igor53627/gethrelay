@@ -90,6 +90,14 @@ func TestHiddenServiceIntegration(t *testing.T) {
 		t.Fatalf("tor cookie file not created: %v", err)
 	}
 
+	// Fix permissions on Tor files so the test can read them
+	// Tor runs as root in the container and creates root-owned files
+	// Use Docker to fix permissions as root since host user may not have permission
+	fixPermsCmd := exec.CommandContext(ctx, "docker", "exec", containerName, "chmod", "-R", "755", "/data")
+	if err := fixPermsCmd.Run(); err != nil {
+		t.Fatalf("fix tor directory permissions: %v", err)
+	}
+
 	conf.Tor.Enabled = true
 	conf.Tor.ControlAddress = fmt.Sprintf("127.0.0.1:%d", controlPort)
 	conf.Tor.CookiePath = filepath.Join("tor", "control_auth_cookie")
