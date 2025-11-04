@@ -13,11 +13,18 @@ jobs:
         with:
           script: |
             const prTitle = context.payload.pull_request.title;
-            const titleRegex = /^([\w\s,{}/.]+): .+/;
-            
-            if (!titleRegex.test(prTitle)) {
-              core.setFailed(`PR title "${prTitle}" does not match required format: directory, ...: description`);
-              return;
+            // Preferred format: "directory: description"
+            // Also allow: "type: description" (e.g., "feat: Add feature", "fix: Fix bug")
+            // Also allow: plain descriptions for cross-cutting changes
+            const preferredFormat = /^([\w\s,{}/.]+): .+/;
+            const typeFormat = /^(feat|fix|refactor|docs|test|chore|style|perf): .+/i;
+
+            if (!preferredFormat.test(prTitle) && !typeFormat.test(prTitle)) {
+              core.warning(`⚠️ PR title "${prTitle}" does not match recommended format.`);
+              core.warning('Recommended formats:');
+              core.warning('  - "directory: description" (e.g., "cmd/gethrelay: Add Tor support")');
+              core.warning('  - "type: description" (e.g., "feat: Add Tor hidden RPC support")');
+              core.warning('This is a warning only - PR will not be blocked.');
+            } else {
+              console.log('✅ PR title format is valid');
             }
-            
-            console.log('✅ PR title format is valid');
