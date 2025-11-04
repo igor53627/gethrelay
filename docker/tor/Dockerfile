@@ -16,6 +16,7 @@ RUN apt-get update && \
 		libevent-dev \
 		libssl-dev \
 		libzstd-dev \
+		zlib1g-dev \
 		pkg-config \
 		autoconf \
 		automake \
@@ -37,7 +38,11 @@ ARG TOR_VERSION
 RUN apt-get update && \
 	DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
 		ca-certificates \
-		curl && \
+		curl \
+		libevent-2.1-7 \
+		libssl3 \
+		libzstd1 \
+		zlib1g && \
 	rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /opt/tor /usr/local
