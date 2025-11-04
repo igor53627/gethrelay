@@ -195,9 +195,11 @@ func retry(ctx context.Context, attempts int, fn func() error) error {
 }
 
 func curlViaTor(ctx context.Context, container string, socksPort int, url, body string) error {
+	// Note: socksPort parameter is the host-mapped port, but we're running curl
+	// inside the container via docker exec, so we use the container's internal port (9150)
 	args := []string{
 		"exec", container,
-		"curl", "--socks5-hostname", fmt.Sprintf("localhost:%d", socksPort),
+		"curl", "--socks5-hostname", "localhost:9150",
 		"-sS", "-X", "POST",
 		"-H", "Content-Type: application/json",
 		"--data", body,
