@@ -55,7 +55,7 @@ func TestHiddenServiceIntegration(t *testing.T) {
 
 	instanceDir := filepath.Join(conf.DataDir, conf.Name)
 	torSharedDir := filepath.Join(instanceDir, "tor")
-	if err := os.MkdirAll(torSharedDir, 0o700); err != nil {
+	if err := os.MkdirAll(torSharedDir, 0o777); err != nil {
 		t.Fatalf("create tor share dir: %v", err)
 	}
 
@@ -66,6 +66,7 @@ func TestHiddenServiceIntegration(t *testing.T) {
 	runArgs := []string{
 		"run", "-d", "--rm",
 		"--name", containerName,
+		"--user", "root",
 		"-v", fmt.Sprintf("%s:/data", torSharedDir),
 		"-p", fmt.Sprintf("127.0.0.1:%d:9150", socksPort),
 		"-p", fmt.Sprintf("127.0.0.1:%d:9051", controlPort),
@@ -81,6 +82,12 @@ func TestHiddenServiceIntegration(t *testing.T) {
 
 	if err := waitForPort(ctx, fmt.Sprintf("127.0.0.1:%d", controlPort)); err != nil {
 		t.Fatalf("tor control port not ready: %v", err)
+	}
+
+	// Wait for Tor to create the cookie file
+	cookiePath := filepath.Join(torSharedDir, "control_auth_cookie")
+	if err := waitForFile(ctx, cookiePath); err != nil {
+		t.Fatalf("tor cookie file not created: %v", err)
 	}
 
 	conf.Tor.Enabled = true
@@ -147,6 +154,18 @@ func waitForPort(ctx context.Context, address string) error {
 			return ctx.Err()
 		}
 		time.Sleep(500 * time.Millisecond)
+	}
+}
+
+func waitForFile(ctx context.Context, path string) error {
+	for {
+		if _, err := os.Stat(path); err == nil {
+			return nil
+		}
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		time.Sleep(200 * time.Millisecond)
 	}
 }
 
