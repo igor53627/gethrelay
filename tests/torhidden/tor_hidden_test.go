@@ -32,7 +32,7 @@ func TestHiddenServiceIntegration(t *testing.T) {
 		t.Skip("docker not available")
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
 
 	tempDir := t.TempDir()
@@ -140,9 +140,10 @@ func TestHiddenServiceIntegration(t *testing.T) {
 	body, _ := json.Marshal(payload)
 	url := fmt.Sprintf("http://%s:%d", onion, httpPort)
 
-	// Retry up to 20 times with exponentially increasing delays
-	// Hidden services can take time to be reachable through the Tor network
-	if err := retry(ctx, 20, func() error {
+	// Retry up to 60 times with exponentially increasing delays
+	// Hidden services can take significant time to be reachable through the Tor network,
+	// especially in CI environments where descriptor propagation may be slower
+	if err := retry(ctx, 60, func() error {
 		return curlViaTor(ctx, containerName, socksPort, url, string(body))
 	}); err != nil {
 		t.Fatalf("hidden service unreachable: %v", err)
