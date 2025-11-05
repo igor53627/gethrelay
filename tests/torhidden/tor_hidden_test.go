@@ -80,6 +80,11 @@ func TestHiddenServiceIntegration(t *testing.T) {
 	}
 	defer exec.Command("docker", "rm", "-f", containerName).Run()
 
+	// Fix permissions on cleanup to allow Go's test framework to delete temp files
+	defer func() {
+		exec.CommandContext(ctx, "docker", "exec", containerName, "chmod", "-R", "777", "/data").Run()
+	}()
+
 	if err := waitForPort(ctx, fmt.Sprintf("127.0.0.1:%d", controlPort)); err != nil {
 		t.Fatalf("tor control port not ready: %v", err)
 	}
