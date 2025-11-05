@@ -786,17 +786,47 @@ jobs:
               if [ "$FAILED_TESTS" -eq 0 ] && [ "$TOTAL_TESTS" -gt 0 ]; then
                 echo "### ✅ All Tests Passed!" >> $GITHUB_STEP_SUMMARY
                 echo "" >> $GITHUB_STEP_SUMMARY
-                echo "- **Total Tests:** $TOTAL_TESTS" >> $GITHUB_STEP_SUMMARY
-                echo "- **Passed:** $PASSED_TESTS" >> $GITHUB_STEP_SUMMARY
-                echo "- **Failed:** $FAILED_TESTS" >> $GITHUB_STEP_SUMMARY
+                echo "| Metric | Count |" >> $GITHUB_STEP_SUMMARY
+                echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+                echo "| **Total Tests** | $TOTAL_TESTS |" >> $GITHUB_STEP_SUMMARY
+                echo "| **Passed** | ✅ $PASSED_TESTS |" >> $GITHUB_STEP_SUMMARY
+                echo "| **Failed** | $FAILED_TESTS |" >> $GITHUB_STEP_SUMMARY
+                echo "" >> $GITHUB_STEP_SUMMARY
+
+                # Extract test categories and their counts
+                echo "### 📊 Test Coverage by API Method" >> $GITHUB_STEP_SUMMARY
+                echo "" >> $GITHUB_STEP_SUMMARY
+                echo "| API Method | Tests | Status |" >> $GITHUB_STEP_SUMMARY
+                echo "|------------|-------|--------|" >> $GITHUB_STEP_SUMMARY
+
+                # Group tests by their API method prefix
+                grep "API: test started" /tmp/hive-goethereum-test.log | \
+                  grep -oP 'name="[^/]+' | \
+                  cut -d'"' -f2 | \
+                  sort | uniq -c | \
+                  awk '{printf "| `%s` | %d | ✅ |\n", $2, $1}' >> $GITHUB_STEP_SUMMARY || echo "| N/A | N/A | N/A |" >> $GITHUB_STEP_SUMMARY
+
               else
                 echo "### ⚠️ Test Results" >> $GITHUB_STEP_SUMMARY
                 echo "" >> $GITHUB_STEP_SUMMARY
-                echo "- **Total Tests:** $TOTAL_TESTS" >> $GITHUB_STEP_SUMMARY
-                echo "- **Passed:** $PASSED_TESTS" >> $GITHUB_STEP_SUMMARY
-                echo "- **Failed:** $FAILED_TESTS" >> $GITHUB_STEP_SUMMARY
+                echo "| Metric | Count |" >> $GITHUB_STEP_SUMMARY
+                echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+                echo "| **Total Tests** | $TOTAL_TESTS |" >> $GITHUB_STEP_SUMMARY
+                echo "| **Passed** | ✅ $PASSED_TESTS |" >> $GITHUB_STEP_SUMMARY
+                echo "| **Failed** | ❌ $FAILED_TESTS |" >> $GITHUB_STEP_SUMMARY
+                echo "" >> $GITHUB_STEP_SUMMARY
+
+                # List failed tests if any
+                if [ "$FAILED_TESTS" -gt 0 ]; then
+                  echo "### ❌ Failed Tests" >> $GITHUB_STEP_SUMMARY
+                  echo "" >> $GITHUB_STEP_SUMMARY
+                  grep "API: test ended.*pass=false" /tmp/hive-goethereum-test.log | \
+                    grep -oP 'name="[^"]+' | \
+                    cut -d'"' -f2 | \
+                    awk '{printf "- `%s`\n", $0}' >> $GITHUB_STEP_SUMMARY || echo "- Details not available" >> $GITHUB_STEP_SUMMARY
+                  echo "" >> $GITHUB_STEP_SUMMARY
+                fi
               fi
-              echo "" >> $GITHUB_STEP_SUMMARY
 
               # Console output
               if [ "$FAILED_TESTS" -eq 0 ] && [ "$TOTAL_TESTS" -gt 0 ]; then
