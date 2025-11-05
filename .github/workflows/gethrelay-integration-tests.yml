@@ -885,7 +885,6 @@ jobs:
               echo ""
               echo "✓ Tests completed - results found even if exit code was non-zero"
             fi
-          fi
         continue-on-error: false  # Fail if client discovery doesn't work
 
       - name: Run devp2p tests
