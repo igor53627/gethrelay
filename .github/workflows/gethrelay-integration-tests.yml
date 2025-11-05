@@ -21,12 +21,6 @@ on:
       - '.github/workflows/gethrelay-integration-tests.yml'
   workflow_dispatch:
     # Allow manual trigger from GitHub UI
-    inputs:
-      notify:
-        description: 'Send Telegram notifications'
-        required: false
-        default: 'true'
-        type: boolean
 
 env:
   GO_VERSION: '1.24'
@@ -34,30 +28,9 @@ env:
   COMPOSE_DOCKER_CLI_BUILD: 1
 
 jobs:
-  notify-start:
-    name: Notify Start
-    runs-on: ubuntu-latest
-    if: github.event_name != 'workflow_dispatch' || github.event.inputs.notify != 'false'
-    steps:
-      - name: Send Telegram notification (workflow started)
-        uses: appleboy/telegram-action@master
-        with:
-          to: ${{ secrets.TELEGRAM_CHAT_ID }}
-          token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          format: markdown
-          message: |
-            🚀 *gethrelay CI Started*
-            
-            *Commit:* `${{ github.sha }}`
-            *Branch:* `${{ github.ref_name }}`
-            *Author:* ${{ github.actor }}
-            *Workflow:* ${{ github.workflow }}
-            
-            [View Workflow](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
   build-image:
     name: Build Docker Image
     runs-on: ubuntu-latest
-    needs: [notify-start]
     outputs:
       image: ${{ steps.meta.outputs.tags }}
       cache-key: ${{ steps.cache-key.outputs.key }}
@@ -143,7 +116,7 @@ jobs:
   hive-tests:
     name: Hive Integration Tests
     runs-on: ubuntu-latest
-    needs: [unit-tests, build-image]
+    needs: [build-image]
     timeout-minutes: 30
     steps:
       - name: Checkout code
@@ -709,37 +682,38 @@ jobs:
             
             # Check if Hive can discover the client
             echo "Checking if Hive can discover clients..."
+            echo "Note: Hive expects client names without :local suffix"
             hive --list 2>&1 | grep -i "go-ethereum\|client" | head -10 || echo "Hive --list command output (check above)"
             echo ""
             
             # Use proper Hive client setup (no --client-override, it doesn't exist!)
-            # Hive will discover clients from /tmp/hive/clients/gethrelay/ directory
-            # We've already set up the client directory in a previous step
-            echo "Running Hive tests with gethrelay:local client..."
-            echo "Hive will build the client image from /tmp/hive/clients/gethrelay/Dockerfile.local"
-            echo "Using: --client=gethrelay:local"
+            # We're using go-ethereum client structure with gethrelay image inside
+            # The Dockerfile.local in clients/go-ethereum/ was modified to FROM ethereum/gethrelay:latest
+            echo "Running Hive tests with go-ethereum client (using gethrelay image)..."
+            echo "Hive will build the client image from /tmp/hive/clients/go-ethereum/Dockerfile.local"
+            echo "Using: --client=go-ethereum (Hive will use :local tag automatically)"
             set +e  # Don't exit on error so we can inspect results
-            
-            # Verify the base gethrelay image exists
+
+            # Verify the base gethrelay image exists (needed by go-ethereum Dockerfile.local)
             echo "Verifying base gethrelay image exists:"
             docker images | grep "ethereum/gethrelay" || {
               echo "ERROR: Base image ethereum/gethrelay:latest not found!"
               exit 1
             }
-            
-            # Verify client directory exists
-            echo "Verifying client directory exists:"
-            if [ ! -d "/tmp/hive/clients/gethrelay" ]; then
-              echo "ERROR: Client directory /tmp/hive/clients/gethrelay not found!"
+
+            # Verify go-ethereum client directory exists
+            echo "Verifying go-ethereum client directory exists:"
+            if [ ! -d "/tmp/hive/clients/go-ethereum" ]; then
+              echo "ERROR: Client directory /tmp/hive/clients/go-ethereum not found!"
               exit 1
             fi
-            echo "Client directory found:"
-            ls -la /tmp/hive/clients/gethrelay/ | head -10
-            
-            # Run Hive with the gethrelay client
-            # Hive will automatically build from Dockerfile.local if needed
+            echo "go-ethereum client directory found:"
+            ls -la /tmp/hive/clients/go-ethereum/ | head -10
+
+            # Run Hive with the go-ethereum client (which uses gethrelay image internally)
+            # Hive will automatically build from Dockerfile.local and tag as :local
             hive --sim=ethereum/rpc-compat \
-                 --client=gethrelay:local \
+                 --client=go-ethereum \
                  --loglevel=5 \
                  --sim.timelimit=15m \
                  --results-root="$RESULTS_DIR" 2>&1 | tee /tmp/hive-goethereum-test.log
@@ -791,34 +765,98 @@ jobs:
               ls -la /tmp/hive*.log 2>/dev/null || echo "No log files in /tmp"
             fi
             echo ""
-            echo "=== Output Analysis ==="
-            
-            # Check for common issues
-            if grep -qi "unknown client\|client.*not found" /tmp/hive-goethereum-test.log; then
-              echo "❌ ISSUE: Client not recognized by Hive"
+            echo "=== Test Results Analysis ==="
+
+            # Extract test results from Hive output
+            TEST_SUMMARY=$(grep -i "simulation.*finished" /tmp/hive-goethereum-test.log | tail -1)
+            if [ -n "$TEST_SUMMARY" ]; then
+              echo "$TEST_SUMMARY"
+
+              # Parse test counts
+              TOTAL_TESTS=$(echo "$TEST_SUMMARY" | grep -oP 'tests=\K\d+' || echo "0")
+              FAILED_TESTS=$(echo "$TEST_SUMMARY" | grep -oP 'failed=\K\d+' || echo "0")
+              PASSED_TESTS=$((TOTAL_TESTS - FAILED_TESTS))
+
+              # Write summary to GitHub
+              echo "## 🧪 Hive Integration Test Results" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "**Simulator:** ethereum/rpc-compat" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+
+              if [ "$FAILED_TESTS" -eq 0 ] && [ "$TOTAL_TESTS" -gt 0 ]; then
+                echo "### ✅ All Tests Passed!" >> $GITHUB_STEP_SUMMARY
+                echo "" >> $GITHUB_STEP_SUMMARY
+                echo "| Metric | Count |" >> $GITHUB_STEP_SUMMARY
+                echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+                echo "| **Total Tests** | $TOTAL_TESTS |" >> $GITHUB_STEP_SUMMARY
+                echo "| **Passed** | ✅ $PASSED_TESTS |" >> $GITHUB_STEP_SUMMARY
+                echo "| **Failed** | $FAILED_TESTS |" >> $GITHUB_STEP_SUMMARY
+                echo "" >> $GITHUB_STEP_SUMMARY
+
+                # Extract test categories and their counts
+                echo "### 📊 Test Coverage by API Method" >> $GITHUB_STEP_SUMMARY
+                echo "" >> $GITHUB_STEP_SUMMARY
+                echo "| API Method | Tests | Status |" >> $GITHUB_STEP_SUMMARY
+                echo "|------------|-------|--------|" >> $GITHUB_STEP_SUMMARY
+
+                # Group tests by their API method prefix
+                grep "API: test started" /tmp/hive-goethereum-test.log | \
+                  grep -oP 'name="[^/]+' | \
+                  cut -d'"' -f2 | \
+                  sort | uniq -c | \
+                  awk '{printf "| `%s` | %d | ✅ |\n", $2, $1}' >> $GITHUB_STEP_SUMMARY || echo "| N/A | N/A | N/A |" >> $GITHUB_STEP_SUMMARY
+
+              else
+                echo "### ⚠️ Test Results" >> $GITHUB_STEP_SUMMARY
+                echo "" >> $GITHUB_STEP_SUMMARY
+                echo "| Metric | Count |" >> $GITHUB_STEP_SUMMARY
+                echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+                echo "| **Total Tests** | $TOTAL_TESTS |" >> $GITHUB_STEP_SUMMARY
+                echo "| **Passed** | ✅ $PASSED_TESTS |" >> $GITHUB_STEP_SUMMARY
+                echo "| **Failed** | ❌ $FAILED_TESTS |" >> $GITHUB_STEP_SUMMARY
+                echo "" >> $GITHUB_STEP_SUMMARY
+
+                # List failed tests if any
+                if [ "$FAILED_TESTS" -gt 0 ]; then
+                  echo "### ❌ Failed Tests" >> $GITHUB_STEP_SUMMARY
+                  echo "" >> $GITHUB_STEP_SUMMARY
+                  grep "API: test ended.*pass=false" /tmp/hive-goethereum-test.log | \
+                    grep -oP 'name="[^"]+' | \
+                    cut -d'"' -f2 | \
+                    awk '{printf "- `%s`\n", $0}' >> $GITHUB_STEP_SUMMARY || echo "- Details not available" >> $GITHUB_STEP_SUMMARY
+                  echo "" >> $GITHUB_STEP_SUMMARY
+                fi
+              fi
+
+              # Console output
+              if [ "$FAILED_TESTS" -eq 0 ] && [ "$TOTAL_TESTS" -gt 0 ]; then
+                echo "✅ All $TOTAL_TESTS tests passed!"
+              else
+                echo "⚠️  Tests: $PASSED_TESTS passed, $FAILED_TESTS failed out of $TOTAL_TESTS"
+              fi
             fi
-            if grep -qi "simulator.*not found\|no.*simulator" /tmp/hive-goethereum-test.log; then
-              echo "❌ ISSUE: Simulator not found"
+
+            # Check for critical errors only
+            if grep -q "^-client: unknown client" /tmp/hive-goethereum-test.log; then
+              echo "❌ CRITICAL: Client not recognized by Hive"
+              echo "**❌ Error:** Client not recognized by Hive" >> $GITHUB_STEP_SUMMARY
             fi
-            if grep -qi "error\|failed\|fatal" /tmp/hive-goethereum-test.log; then
-              echo "❌ ISSUE: Errors detected in output"
-              grep -i "error\|failed\|fatal" /tmp/hive-goethereum-test.log | head -10
-            fi
-            if grep -qi "simulator.*started\|running.*test" /tmp/hive-goethereum-test.log; then
-              echo "✓ Simulators appear to have started"
-            fi
-            
+
             # If exit code is non-zero, show error
             if [ $HIVE_EXIT_CODE -ne 0 ]; then
               echo ""
               echo "⚠️ Hive exited with error code: $HIVE_EXIT_CODE"
               echo "This may be expected if tests failed, but results should still be produced"
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "**Exit Code:** $HIVE_EXIT_CODE (non-zero)" >> $GITHUB_STEP_SUMMARY
               echo ""
               echo "Last 50 lines of output:"
               tail -50 /tmp/hive-goethereum-test.log
             else
               echo ""
               echo "✓ Hive exited successfully (code: $HIVE_EXIT_CODE)"
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "**Exit Code:** $HIVE_EXIT_CODE ✓" >> $GITHUB_STEP_SUMMARY
             fi
             
             # Always check for results, even if exit code was non-zero
@@ -911,7 +949,6 @@ jobs:
               echo ""
               echo "✓ Tests completed - results found even if exit code was non-zero"
             fi
-          fi
         continue-on-error: false  # Fail if client discovery doesn't work
 
       - name: Run devp2p tests
@@ -1245,47 +1282,4 @@ jobs:
             echo "Check the test execution steps above for error messages." >> $GITHUB_STEP_SUMMARY
           fi
 
-  notify-success:
-    name: Notify Success
-    runs-on: ubuntu-latest
-    needs: [unit-tests, build-image, hive-tests]
-    if: success() && (github.event_name != 'workflow_dispatch' || github.event.inputs.notify != 'false')
-    steps:
-      - name: Send Telegram notification (success)
-        uses: appleboy/telegram-action@master
-        with:
-          to: ${{ secrets.TELEGRAM_CHAT_ID }}
-          token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          format: markdown
-          message: |
-            ✅ *gethrelay CI Passed*
-            
-            All tests completed successfully!
-            
-            *Commit:* `${{ github.sha }}`
-            *Branch:* `${{ github.ref_name }}`
-            
-            [View Workflow](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
-
-  notify-failure:
-    name: Notify Failure
-    runs-on: ubuntu-latest
-    needs: [unit-tests, build-image, hive-tests]
-    if: failure() && (github.event_name != 'workflow_dispatch' || github.event.inputs.notify != 'false')
-    steps:
-      - name: Send Telegram notification (failure)
-        uses: appleboy/telegram-action@master
-        with:
-          to: ${{ secrets.TELEGRAM_CHAT_ID }}
-          token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          format: markdown
-          message: |
-            ❌ *gethrelay CI Failed*
-            
-            Some tests or builds failed. Please check the logs.
-            
-            *Commit:* `${{ github.sha }}`
-            *Branch:* `${{ github.ref_name }}`
-            
-            [View Workflow](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
 

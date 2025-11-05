@@ -500,6 +500,10 @@ func (n *Node) startRPC() error {
 			return err
 		}
 	}
+
+	if err := n.enableTorHiddenService(); err != nil {
+		return err
+	}
 	return nil
 }
 

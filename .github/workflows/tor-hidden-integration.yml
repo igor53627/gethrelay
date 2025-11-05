@@ -1,0 +1,118 @@
+name: tor-hidden-integration
+
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows: ["build-tor-image"]
+    types:
+      - completed
+  pull_request:
+    paths:
+      - node/**
+      - tests/torhidden/**
+      - docker/tor/**
+      - go.mod
+      - go.sum
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    # Only run if workflow_run was successful or triggered by other events
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+    permissions:
+      contents: read
+      packages: read
+    env:
+      GETH_TOR_IMAGE: ghcr.io/${{ github.repository_owner }}/geth-tor-hidden-service:latest
+      TOR_INTEGRATION_TEST: "1"
+      CI: "true"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Check if Tor image exists
+        id: check-image
+        continue-on-error: true
+        run: |
+          if docker pull $GETH_TOR_IMAGE 2>&1; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "✅ Tor image exists and was pulled successfully"
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "⚠️ Tor image does not exist yet"
+          fi
+
+      - name: Build Tor image if not available
+        if: steps.check-image.outputs.exists != 'true'
+        run: |
+          echo "Building Tor image from docker/tor/Dockerfile..."
+          docker build -t $GETH_TOR_IMAGE -f docker/tor/Dockerfile .
+          echo "✅ Tor image built successfully"
+
+      - name: Run hidden service integration test
+        run: |
+          set +e  # Don't exit on error so we can parse results
+          go test ./tests/torhidden -run TestHiddenServiceIntegration -timeout 5m -v 2>&1 | tee /tmp/tor-test-output.log
+          TEST_EXIT_CODE=$?
+          set -e
+
+          echo ""
+          echo "=== Test Results Summary ==="
+
+          # Write summary to GitHub
+          echo "## 🔐 Tor Hidden Service Integration Test" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ $TEST_EXIT_CODE -eq 0 ]; then
+            echo "### ✅ Test Passed" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+
+            # Extract onion address if present
+            ONION_ADDR=$(grep -oP 'Tor hidden service configured successfully: \K[a-z0-9]+\.onion' /tmp/tor-test-output.log || echo "")
+            if [ -n "$ONION_ADDR" ]; then
+              echo "**Onion Address:** \`$ONION_ADDR\`" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+            fi
+
+            # Check if CI skip was triggered
+            if grep -q "Skipping network connectivity test in CI environment" /tmp/tor-test-output.log; then
+              echo "**Test Mode:** Configuration validation only (CI environment)" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "✓ Tor hidden service setup validated successfully" >> $GITHUB_STEP_SUMMARY
+              echo "✓ Network connectivity test skipped in CI (as designed)" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "**Test Mode:** Full integration test with network connectivity" >> $GITHUB_STEP_SUMMARY
+            fi
+
+            # Extract test duration
+            TEST_DURATION=$(grep -oP 'TestHiddenServiceIntegration \(\K[0-9.]+s' /tmp/tor-test-output.log || echo "")
+            if [ -n "$TEST_DURATION" ]; then
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "**Duration:** $TEST_DURATION" >> $GITHUB_STEP_SUMMARY
+            fi
+
+            echo ""
+            echo "✅ Tor hidden service integration test PASSED"
+          else
+            echo "### ❌ Test Failed" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Exit Code:** $TEST_EXIT_CODE" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "See test output above for details." >> $GITHUB_STEP_SUMMARY
+
+            echo ""
+            echo "❌ Tor hidden service integration test FAILED with exit code $TEST_EXIT_CODE"
+            exit $TEST_EXIT_CODE
+          fi

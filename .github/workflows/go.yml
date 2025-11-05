@@ -54,5 +54,12 @@ jobs:
           go-version: ${{ matrix.go }}
           cache: false
 
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Run tests
         run: go run build/ci.go test
