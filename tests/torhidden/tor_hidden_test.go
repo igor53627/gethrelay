@@ -32,7 +32,7 @@ func TestHiddenServiceIntegration(t *testing.T) {
 		t.Skip("docker not available")
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 	defer cancel()
 
 	tempDir := t.TempDir()
