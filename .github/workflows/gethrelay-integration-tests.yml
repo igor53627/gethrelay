@@ -682,15 +682,16 @@ jobs:
             
             # Check if Hive can discover the client
             echo "Checking if Hive can discover clients..."
+            echo "Note: Hive expects client names without :local suffix"
             hive --list 2>&1 | grep -i "go-ethereum\|client" | head -10 || echo "Hive --list command output (check above)"
             echo ""
             
             # Use proper Hive client setup (no --client-override, it doesn't exist!)
             # We're using go-ethereum client structure with gethrelay image inside
             # The Dockerfile.local in clients/go-ethereum/ was modified to FROM ethereum/gethrelay:latest
-            echo "Running Hive tests with go-ethereum:local client (using gethrelay image)..."
+            echo "Running Hive tests with go-ethereum client (using gethrelay image)..."
             echo "Hive will build the client image from /tmp/hive/clients/go-ethereum/Dockerfile.local"
-            echo "Using: --client=go-ethereum:local"
+            echo "Using: --client=go-ethereum (Hive will use :local tag automatically)"
             set +e  # Don't exit on error so we can inspect results
 
             # Verify the base gethrelay image exists (needed by go-ethereum Dockerfile.local)
@@ -710,9 +711,9 @@ jobs:
             ls -la /tmp/hive/clients/go-ethereum/ | head -10
 
             # Run Hive with the go-ethereum client (which uses gethrelay image internally)
-            # Hive will automatically build from Dockerfile.local if needed
+            # Hive will automatically build from Dockerfile.local and tag as :local
             hive --sim=ethereum/rpc-compat \
-                 --client=go-ethereum:local \
+                 --client=go-ethereum \
                  --loglevel=5 \
                  --sim.timelimit=15m \
                  --results-root="$RESULTS_DIR" 2>&1 | tee /tmp/hive-goethereum-test.log
