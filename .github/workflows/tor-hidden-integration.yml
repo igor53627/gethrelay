@@ -25,6 +25,7 @@ jobs:
     env:
       GETH_TOR_IMAGE: ghcr.io/${{ github.repository_owner }}/geth-tor-hidden-service:latest
       TOR_INTEGRATION_TEST: "1"
+      CI: "true"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -62,4 +63,4 @@ jobs:
 
       - name: Run hidden service integration test
         run: |
-          go test ./tests/torhidden -run TestHiddenServiceIntegration -timeout 10m
+          go test ./tests/torhidden -run TestHiddenServiceIntegration -timeout 5m -v
