@@ -126,6 +126,11 @@ func TestHiddenServiceIntegration(t *testing.T) {
 		t.Fatal("tor hidden service onion not set")
 	}
 
+	// Give Tor time to bootstrap and publish the hidden service descriptor
+	// This is especially important in CI environments with slower network
+	t.Logf("Waiting for Tor to bootstrap and publish hidden service %s", onion)
+	time.Sleep(10 * time.Second)
+
 	payload := map[string]interface{}{
 		"jsonrpc": "2.0",
 		"method":  "torTest_ping",
@@ -135,7 +140,9 @@ func TestHiddenServiceIntegration(t *testing.T) {
 	body, _ := json.Marshal(payload)
 	url := fmt.Sprintf("http://%s:%d", onion, httpPort)
 
-	if err := retry(ctx, 10, func() error {
+	// Retry up to 20 times with exponentially increasing delays
+	// Hidden services can take time to be reachable through the Tor network
+	if err := retry(ctx, 20, func() error {
 		return curlViaTor(ctx, containerName, socksPort, url, string(body))
 	}); err != nil {
 		t.Fatalf("hidden service unreachable: %v", err)
