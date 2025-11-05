@@ -765,34 +765,68 @@ jobs:
               ls -la /tmp/hive*.log 2>/dev/null || echo "No log files in /tmp"
             fi
             echo ""
-            echo "=== Output Analysis ==="
-            
-            # Check for common issues
-            if grep -qi "unknown client\|client.*not found" /tmp/hive-goethereum-test.log; then
-              echo "❌ ISSUE: Client not recognized by Hive"
+            echo "=== Test Results Analysis ==="
+
+            # Extract test results from Hive output
+            TEST_SUMMARY=$(grep -i "simulation.*finished" /tmp/hive-goethereum-test.log | tail -1)
+            if [ -n "$TEST_SUMMARY" ]; then
+              echo "$TEST_SUMMARY"
+
+              # Parse test counts
+              TOTAL_TESTS=$(echo "$TEST_SUMMARY" | grep -oP 'tests=\K\d+' || echo "0")
+              FAILED_TESTS=$(echo "$TEST_SUMMARY" | grep -oP 'failed=\K\d+' || echo "0")
+              PASSED_TESTS=$((TOTAL_TESTS - FAILED_TESTS))
+
+              # Write summary to GitHub
+              echo "## 🧪 Hive Integration Test Results" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "**Simulator:** ethereum/rpc-compat" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+
+              if [ "$FAILED_TESTS" -eq 0 ] && [ "$TOTAL_TESTS" -gt 0 ]; then
+                echo "### ✅ All Tests Passed!" >> $GITHUB_STEP_SUMMARY
+                echo "" >> $GITHUB_STEP_SUMMARY
+                echo "- **Total Tests:** $TOTAL_TESTS" >> $GITHUB_STEP_SUMMARY
+                echo "- **Passed:** $PASSED_TESTS" >> $GITHUB_STEP_SUMMARY
+                echo "- **Failed:** $FAILED_TESTS" >> $GITHUB_STEP_SUMMARY
+              else
+                echo "### ⚠️ Test Results" >> $GITHUB_STEP_SUMMARY
+                echo "" >> $GITHUB_STEP_SUMMARY
+                echo "- **Total Tests:** $TOTAL_TESTS" >> $GITHUB_STEP_SUMMARY
+                echo "- **Passed:** $PASSED_TESTS" >> $GITHUB_STEP_SUMMARY
+                echo "- **Failed:** $FAILED_TESTS" >> $GITHUB_STEP_SUMMARY
+              fi
+              echo "" >> $GITHUB_STEP_SUMMARY
+
+              # Console output
+              if [ "$FAILED_TESTS" -eq 0 ] && [ "$TOTAL_TESTS" -gt 0 ]; then
+                echo "✅ All $TOTAL_TESTS tests passed!"
+              else
+                echo "⚠️  Tests: $PASSED_TESTS passed, $FAILED_TESTS failed out of $TOTAL_TESTS"
+              fi
             fi
-            if grep -qi "simulator.*not found\|no.*simulator" /tmp/hive-goethereum-test.log; then
-              echo "❌ ISSUE: Simulator not found"
+
+            # Check for critical errors only
+            if grep -q "^-client: unknown client" /tmp/hive-goethereum-test.log; then
+              echo "❌ CRITICAL: Client not recognized by Hive"
+              echo "**❌ Error:** Client not recognized by Hive" >> $GITHUB_STEP_SUMMARY
             fi
-            if grep -qi "error\|failed\|fatal" /tmp/hive-goethereum-test.log; then
-              echo "❌ ISSUE: Errors detected in output"
-              grep -i "error\|failed\|fatal" /tmp/hive-goethereum-test.log | head -10
-            fi
-            if grep -qi "simulator.*started\|running.*test" /tmp/hive-goethereum-test.log; then
-              echo "✓ Simulators appear to have started"
-            fi
-            
+
             # If exit code is non-zero, show error
             if [ $HIVE_EXIT_CODE -ne 0 ]; then
               echo ""
               echo "⚠️ Hive exited with error code: $HIVE_EXIT_CODE"
               echo "This may be expected if tests failed, but results should still be produced"
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "**Exit Code:** $HIVE_EXIT_CODE (non-zero)" >> $GITHUB_STEP_SUMMARY
               echo ""
               echo "Last 50 lines of output:"
               tail -50 /tmp/hive-goethereum-test.log
             else
               echo ""
               echo "✓ Hive exited successfully (code: $HIVE_EXIT_CODE)"
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "**Exit Code:** $HIVE_EXIT_CODE ✓" >> $GITHUB_STEP_SUMMARY
             fi
             
             # Always check for results, even if exit code was non-zero
