@@ -686,33 +686,33 @@ jobs:
             echo ""
             
             # Use proper Hive client setup (no --client-override, it doesn't exist!)
-            # Hive will discover clients from /tmp/hive/clients/gethrelay/ directory
-            # We've already set up the client directory in a previous step
-            echo "Running Hive tests with gethrelay:local client..."
-            echo "Hive will build the client image from /tmp/hive/clients/gethrelay/Dockerfile.local"
-            echo "Using: --client=gethrelay:local"
+            # We're using go-ethereum client structure with gethrelay image inside
+            # The Dockerfile.local in clients/go-ethereum/ was modified to FROM ethereum/gethrelay:latest
+            echo "Running Hive tests with go-ethereum:local client (using gethrelay image)..."
+            echo "Hive will build the client image from /tmp/hive/clients/go-ethereum/Dockerfile.local"
+            echo "Using: --client=go-ethereum:local"
             set +e  # Don't exit on error so we can inspect results
-            
-            # Verify the base gethrelay image exists
+
+            # Verify the base gethrelay image exists (needed by go-ethereum Dockerfile.local)
             echo "Verifying base gethrelay image exists:"
             docker images | grep "ethereum/gethrelay" || {
               echo "ERROR: Base image ethereum/gethrelay:latest not found!"
               exit 1
             }
-            
-            # Verify client directory exists
-            echo "Verifying client directory exists:"
-            if [ ! -d "/tmp/hive/clients/gethrelay" ]; then
-              echo "ERROR: Client directory /tmp/hive/clients/gethrelay not found!"
+
+            # Verify go-ethereum client directory exists
+            echo "Verifying go-ethereum client directory exists:"
+            if [ ! -d "/tmp/hive/clients/go-ethereum" ]; then
+              echo "ERROR: Client directory /tmp/hive/clients/go-ethereum not found!"
               exit 1
             fi
-            echo "Client directory found:"
-            ls -la /tmp/hive/clients/gethrelay/ | head -10
-            
-            # Run Hive with the gethrelay client
+            echo "go-ethereum client directory found:"
+            ls -la /tmp/hive/clients/go-ethereum/ | head -10
+
+            # Run Hive with the go-ethereum client (which uses gethrelay image internally)
             # Hive will automatically build from Dockerfile.local if needed
             hive --sim=ethereum/rpc-compat \
-                 --client=gethrelay:local \
+                 --client=go-ethereum:local \
                  --loglevel=5 \
                  --sim.timelimit=15m \
                  --results-root="$RESULTS_DIR" 2>&1 | tee /tmp/hive-goethereum-test.log
