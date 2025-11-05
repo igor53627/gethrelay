@@ -127,9 +127,9 @@ func TestHiddenServiceIntegration(t *testing.T) {
 	}
 
 	// Give Tor time to bootstrap and publish the hidden service descriptor
-	// This is especially important in CI environments with slower network
-	t.Logf("Waiting for Tor to bootstrap and publish hidden service %s", onion)
-	time.Sleep(10 * time.Second)
+	// In CI environments, this can take significantly longer than locally
+	t.Logf("Waiting for Tor bootstrap and hidden service descriptor publication for %s", onion)
+	time.Sleep(30 * time.Second)
 
 	payload := map[string]interface{}{
 		"jsonrpc": "2.0",
