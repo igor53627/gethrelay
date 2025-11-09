@@ -37,6 +37,8 @@ data:
 
     # Data directory
     DataDirectory /var/lib/tor
+    DataDirectoryGroupReadable 1
+    CacheDirectoryGroupReadable 1
 
     # Hidden service configuration for P2P port
     # This creates a persistent .onion address for the gethrelay P2P service
@@ -329,7 +331,7 @@ spec:
       initContainers:
       - name: fix-permissions
         image: busybox
-        command: ['sh', '-c', 'chown -R 100:100 /var/lib/tor && chmod -R 750 /var/lib/tor']
+        command: ['sh', '-c', 'chown -R 100:101 /var/lib/tor && chmod -R 750 /var/lib/tor']
         volumeMounts:
         - name: tor-data
           mountPath: /var/lib/tor
@@ -420,7 +422,7 @@ spec:
       initContainers:
       - name: fix-permissions
         image: busybox
-        command: ['sh', '-c', 'chown -R 100:100 /var/lib/tor && chmod -R 750 /var/lib/tor']
+        command: ['sh', '-c', 'chown -R 100:101 /var/lib/tor && chmod -R 750 /var/lib/tor']
         volumeMounts:
         - name: tor-data
           mountPath: /var/lib/tor
@@ -511,7 +513,7 @@ spec:
       initContainers:
       - name: fix-permissions
         image: busybox
-        command: ['sh', '-c', 'chown -R 100:100 /var/lib/tor && chmod -R 750 /var/lib/tor']
+        command: ['sh', '-c', 'chown -R 100:101 /var/lib/tor && chmod -R 750 /var/lib/tor']
         volumeMounts:
         - name: tor-data
           mountPath: /var/lib/tor
@@ -602,7 +604,7 @@ spec:
       initContainers:
       - name: fix-permissions
         image: busybox
-        command: ['sh', '-c', 'chown -R 100:100 /var/lib/tor && chmod -R 750 /var/lib/tor']
+        command: ['sh', '-c', 'chown -R 100:101 /var/lib/tor && chmod -R 750 /var/lib/tor']
         volumeMounts:
         - name: tor-data
           mountPath: /var/lib/tor
@@ -693,7 +695,7 @@ spec:
       initContainers:
       - name: fix-permissions
         image: busybox
-        command: ['sh', '-c', 'chown -R 100:100 /var/lib/tor && chmod -R 750 /var/lib/tor']
+        command: ['sh', '-c', 'chown -R 100:101 /var/lib/tor && chmod -R 750 /var/lib/tor']
         volumeMounts:
         - name: tor-data
           mountPath: /var/lib/tor
@@ -784,7 +786,7 @@ spec:
       initContainers:
       - name: fix-permissions
         image: busybox
-        command: ['sh', '-c', 'chown -R 100:100 /var/lib/tor && chmod -R 750 /var/lib/tor']
+        command: ['sh', '-c', 'chown -R 100:101 /var/lib/tor && chmod -R 750 /var/lib/tor']
         volumeMounts:
         - name: tor-data
           mountPath: /var/lib/tor
@@ -875,7 +877,7 @@ spec:
       initContainers:
       - name: fix-permissions
         image: busybox
-        command: ['sh', '-c', 'chown -R 100:100 /var/lib/tor && chmod -R 750 /var/lib/tor']
+        command: ['sh', '-c', 'chown -R 100:101 /var/lib/tor && chmod -R 750 /var/lib/tor']
         volumeMounts:
         - name: tor-data
           mountPath: /var/lib/tor

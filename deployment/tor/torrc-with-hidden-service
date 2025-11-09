@@ -14,6 +14,8 @@ CookieAuthFileGroupReadable 1
 
 # Data directory
 DataDirectory /var/lib/tor
+DataDirectoryGroupReadable 1
+CacheDirectoryGroupReadable 1
 
 # Hidden service configuration for P2P port
 # This creates a persistent .onion address for the gethrelay P2P service
