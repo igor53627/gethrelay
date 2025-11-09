@@ -6,6 +6,9 @@ RUN apk add --no-cache gcc musl-dev linux-headers git make
 
 WORKDIR /go-ethereum
 
+# Set GOTOOLCHAIN to auto to allow downloading the correct Go version
+ENV GOTOOLCHAIN=auto
+
 # Copy go module files
 COPY go.mod go.sum ./
 RUN go mod download
