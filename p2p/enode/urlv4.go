@@ -25,6 +25,7 @@ import (
 	"net/url"
 	"regexp"
 	"strconv"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -106,6 +107,30 @@ func isNewV4(n *Node) bool {
 	return n.r.IdentityScheme() == "" && n.r.Load(&k) == nil && len(n.r.Signature()) == 0
 }
 
+// isValidOnion3 checks if hostname is a valid Tor v3 .onion address.
+// Valid format: 56 base32 characters (a-z, 2-7) + ".onion" suffix (62 chars total).
+func isValidOnion3(hostname string) bool {
+	const (
+		onionSuffix = ".onion"
+		base32Len   = 56
+		totalLen    = 62 // 56 + 6
+	)
+
+	if len(hostname) != totalLen || !strings.HasSuffix(hostname, onionSuffix) {
+		return false
+	}
+
+	// Check base32 characters (a-z, 2-7)
+	base32Part := hostname[:base32Len]
+	for _, c := range base32Part {
+		if !((c >= 'a' && c <= 'z') || (c >= '2' && c <= '7')) {
+			return false
+		}
+	}
+
+	return true
+}
+
 func parseComplete(rawurl string) (*Node, error) {
 	var (
 		id               *ecdsa.PublicKey
@@ -143,7 +168,23 @@ func parseComplete(rawurl string) (*Node, error) {
 	// Create the node.
 	node := NewV4(id, ip, int(tcpPort), int(udpPort))
 	if ip == nil && u.Hostname() != "" {
-		node = node.WithHostname(u.Hostname())
+		hostname := u.Hostname()
+
+		// Check if hostname is a valid Tor v3 .onion address
+		if isValidOnion3(hostname) {
+			// Add as enr.Onion3 entry for Tor dialer detection
+			var r enr.Record
+			r.Set(enr.Onion3(hostname))
+			r.Set(enr.TCP(int(tcpPort)))
+			if udpPort != tcpPort {
+				r.Set(enr.UDP(int(udpPort)))
+			}
+			signV4Compat(&r, id)
+			node, _ = New(v4CompatID{}, &r)
+		} else {
+			// Non-.onion hostname - use existing logic
+			node = node.WithHostname(hostname)
+		}
 	}
 	return node, nil
 }
@@ -175,7 +216,17 @@ func (n *Node) URLv4() string {
 		nodeid = fmt.Sprintf("%s.%x", scheme, n.id[:])
 	}
 	u := url.URL{Scheme: "enode"}
-	if n.Hostname() != "" {
+
+	// Check for .onion address in ENR
+	var onion enr.Onion3
+	if n.Load(&onion) == nil && onion != "" {
+		// For Tor .onion addresses: include .onion address, TCP port, and optional UDP port
+		u.User = url.User(nodeid)
+		u.Host = fmt.Sprintf("%s:%d", string(onion), n.TCP())
+		if n.UDP() != 0 && n.UDP() != n.TCP() {
+			u.RawQuery = "discport=" + strconv.Itoa(n.UDP())
+		}
+	} else if n.Hostname() != "" {
 		// For nodes with a DNS name: include DNS name, TCP port, and optional UDP port
 		u.User = url.User(nodeid)
 		u.Host = fmt.Sprintf("%s:%d", n.Hostname(), n.TCP())
