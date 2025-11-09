@@ -94,6 +94,64 @@ const IDv4 = ID("v4") // the default identity scheme
 
 func (v ID) ENRKey() string { return "id" }
 
+// Onion3 is the "onion3" key, which holds a Tor v3 hidden service address.
+// A valid Tor v3 address consists of 56 base32 characters followed by ".onion".
+type Onion3 string
+
+func (v Onion3) ENRKey() string { return "onion3" }
+
+// EncodeRLP implements rlp.Encoder.
+func (v Onion3) EncodeRLP(w io.Writer) error {
+	if err := validateOnion3(string(v)); err != nil {
+		return err
+	}
+	return rlp.Encode(w, string(v))
+}
+
+// DecodeRLP implements rlp.Decoder.
+func (v *Onion3) DecodeRLP(s *rlp.Stream) error {
+	var addr string
+	if err := s.Decode(&addr); err != nil {
+		return err
+	}
+	if err := validateOnion3(addr); err != nil {
+		return err
+	}
+	*v = Onion3(addr)
+	return nil
+}
+
+// validateOnion3 checks if the given string is a valid Tor v3 .onion address.
+// Valid format: 56 base32 characters (a-z, 2-7) + ".onion" suffix (62 chars total).
+func validateOnion3(addr string) error {
+	const (
+		onionSuffix    = ".onion"
+		onionSuffixLen = 6  // len(".onion")
+		base32Len      = 56 // Tor v3 addresses use 56 base32 characters
+		totalLen       = base32Len + onionSuffixLen
+	)
+
+	// Check total length
+	if len(addr) != totalLen {
+		return fmt.Errorf("invalid Tor v3 address length: got %d, want %d", len(addr), totalLen)
+	}
+
+	// Check .onion suffix
+	if addr[base32Len:] != onionSuffix {
+		return fmt.Errorf("invalid Tor v3 address: missing .onion suffix")
+	}
+
+	// Check that the first 56 characters are valid base32 (lowercase a-z, digits 2-7)
+	base32Part := addr[:base32Len]
+	for i, c := range base32Part {
+		if !((c >= 'a' && c <= 'z') || (c >= '2' && c <= '7')) {
+			return fmt.Errorf("invalid Tor v3 address: character at position %d is not valid base32 (got %q)", i, c)
+		}
+	}
+
+	return nil
+}
+
 // IP is either the "ip" or "ip6" key, depending on the value.
 // Use this value to encode IP addresses that can be either v4 or v6.
 // To load an address from a record use the IPv4 or IPv6 types.

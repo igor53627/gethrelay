@@ -346,3 +346,199 @@ func (testSig) NodeAddr(r *Record) []byte {
 	}
 	return id
 }
+
+// TestGetSetOnion3 tests encoding/decoding and setting/getting of the Onion3 key.
+func TestGetSetOnion3(t *testing.T) {
+	// Valid Tor v3 address (56 base32 chars + .onion)
+	onion := Onion3("vww6ybal4bd7szmgncyruucpgfkqahzddi37ktceo3ah7ngmcopnpyyd.onion")
+	var r Record
+	r.Set(onion)
+
+	var onion2 Onion3
+	require.NoError(t, r.Load(&onion2))
+	assert.Equal(t, onion, onion2)
+}
+
+// TestOnion3ENRKey tests that Onion3.ENRKey() returns "onion3".
+func TestOnion3ENRKey(t *testing.T) {
+	onion := Onion3("vww6ybal4bd7szmgncyruucpgfkqahzddi37ktceo3ah7ngmcopnpyyd.onion")
+	assert.Equal(t, "onion3", onion.ENRKey())
+}
+
+// TestOnion3RoundTrip tests that RLP encoding and decoding preserves the Onion3 address.
+func TestOnion3RoundTrip(t *testing.T) {
+	onion := Onion3("vww6ybal4bd7szmgncyruucpgfkqahzddi37ktceo3ah7ngmcopnpyyd.onion")
+
+	// Encode to RLP
+	var buf bytes.Buffer
+	err := onion.EncodeRLP(&buf)
+	require.NoError(t, err)
+
+	// Decode from RLP
+	var decoded Onion3
+	err = rlp.DecodeBytes(buf.Bytes(), &decoded)
+	require.NoError(t, err)
+
+	// Verify round-trip preserves the address
+	assert.Equal(t, onion, decoded)
+}
+
+// TestOnion3DecodeErrors tests RLP decoding error handling.
+func TestOnion3DecodeErrors(t *testing.T) {
+	// Test decoding invalid RLP data
+	invalidRLP := []byte{0x00} // Invalid RLP
+	var onion Onion3
+	err := rlp.DecodeBytes(invalidRLP, &onion)
+	assert.Error(t, err)
+}
+
+// TestOnion3InvalidFormats tests that invalid Onion3 formats are rejected.
+func TestOnion3InvalidFormats(t *testing.T) {
+	tests := []struct {
+		name    string
+		address string
+		wantErr bool
+	}{
+		{
+			name:    "valid v3 address",
+			address: "vww6ybal4bd7szmgncyruucpgfkqahzddi37ktceo3ah7ngmcopnpyyd.onion",
+			wantErr: false,
+		},
+		{
+			name:    "too short (v2 address)",
+			address: "3g2upl4pq6kufc4m.onion",
+			wantErr: true,
+		},
+		{
+			name:    "missing .onion suffix",
+			address: "vww6ybal4bd7szmgncyruucpgfkqahzddi37ktceo3ah7ngmcopnpyyd",
+			wantErr: true,
+		},
+		{
+			name:    "too long",
+			address: "vww6ybal4bd7szmgncyruucpgfkqahzddi37ktceo3ah7ngmcopnpyydextra.onion",
+			wantErr: true,
+		},
+		{
+			name:    "invalid base32 characters (uppercase)",
+			address: "VWW6YBAL4BD7SZMGNCYRUUCPGFKQAHZDDI37KTCEO3AH7NGMCOPNPYYD.onion",
+			wantErr: true,
+		},
+		{
+			name:    "invalid base32 characters (numbers 0, 1, 8, 9)",
+			address: "0ww6ybal4bd7szmgncyruucpgfkqahzddi37ktceo3ah7ngmcopnpyy1.onion",
+			wantErr: true,
+		},
+		{
+			name:    "empty string",
+			address: "",
+			wantErr: true,
+		},
+		{
+			name:    "just .onion",
+			address: ".onion",
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			onion := Onion3(tt.address)
+
+			// Try encoding - should validate
+			var buf bytes.Buffer
+			err := onion.EncodeRLP(&buf)
+
+			if tt.wantErr {
+				assert.Error(t, err, "expected error for invalid address: %s", tt.address)
+			} else {
+				assert.NoError(t, err, "expected no error for valid address: %s", tt.address)
+
+				// If encoding succeeded, verify decoding also works
+				var decoded Onion3
+				err = rlp.DecodeBytes(buf.Bytes(), &decoded)
+				assert.NoError(t, err)
+				assert.Equal(t, onion, decoded)
+			}
+		})
+	}
+}
+
+// TestOnion3StreamDecodeError tests RLP stream decode errors for Onion3.
+func TestOnion3StreamDecodeError(t *testing.T) {
+	// Test invalid RLP stream (not a string)
+	var onion Onion3
+	stream := rlp.NewStream(bytes.NewReader([]byte{0xC0}), 0) // List instead of string
+	err := onion.DecodeRLP(stream)
+	if err == nil {
+		t.Fatal("expected error decoding list as Onion3")
+	}
+}
+
+// TestOnion3InENRRecord tests Onion3 in actual ENR record operations.
+func TestOnion3InENRRecord(t *testing.T) {
+	validOnion := Onion3("abcdefghijklmnopqrstuvwxyz234567abcdefghijklmnopqrstuv22.onion")
+
+	// Test Set in record
+	var r Record
+	r.Set(validOnion)
+	require.NoError(t, signTest([]byte{5}, &r)) // Sign the record
+
+	// Test Load from record
+	var loaded Onion3
+	if err := r.Load(&loaded); err != nil {
+		t.Fatalf("failed to load Onion3 from record: %v", err)
+	}
+
+	if loaded != validOnion {
+		t.Errorf("loaded value mismatch: got %s, want %s", loaded, validOnion)
+	}
+
+	// Test roundtrip through RLP encoding
+	blob, err := rlp.EncodeToBytes(r)
+	if err != nil {
+		t.Fatalf("failed to encode record: %v", err)
+	}
+
+	var r2 Record
+	if err := rlp.DecodeBytes(blob, &r2); err != nil {
+		t.Fatalf("failed to decode record: %v", err)
+	}
+
+	var loaded2 Onion3
+	if err := r2.Load(&loaded2); err != nil {
+		t.Fatalf("failed to load Onion3 from decoded record: %v", err)
+	}
+
+	if loaded2 != validOnion {
+		t.Errorf("roundtrip value mismatch: got %s, want %s", loaded2, validOnion)
+	}
+}
+
+// TestOnion3WithOtherENREntries tests Onion3 alongside other ENR entries.
+func TestOnion3WithOtherENREntries(t *testing.T) {
+	var r Record
+	r.Set(Onion3("abcdefghijklmnopqrstuvwxyz234567abcdefghijklmnopqrstuv22.onion"))
+	r.Set(IPv4{192, 168, 1, 1})
+	r.Set(TCP(30303))
+	r.Set(UDP(30303))
+
+	// Verify all entries can be loaded
+	var onion Onion3
+	var ip IPv4
+	var tcp TCP
+	var udp UDP
+
+	if err := r.Load(&onion); err != nil {
+		t.Fatalf("failed to load Onion3: %v", err)
+	}
+	if err := r.Load(&ip); err != nil {
+		t.Fatalf("failed to load IPv4: %v", err)
+	}
+	if err := r.Load(&tcp); err != nil {
+		t.Fatalf("failed to load TCP: %v", err)
+	}
+	if err := r.Load(&udp); err != nil {
+		t.Fatalf("failed to load UDP: %v", err)
+	}
+}

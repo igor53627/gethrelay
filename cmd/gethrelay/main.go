@@ -123,6 +123,19 @@ var (
 			Usage: "Upstream RPC endpoint URL for proxying requests (default: https://ethereum-rpc.publicnode.com)",
 			Value: "https://ethereum-rpc.publicnode.com",
 		},
+		// Tor configuration flags
+		&cli.StringFlag{
+			Name:  "tor-proxy",
+			Usage: "SOCKS5 proxy address for Tor connections (e.g., 127.0.0.1:9050)",
+		},
+		&cli.BoolFlag{
+			Name:  "prefer-tor",
+			Usage: "Prefer .onion addresses when both Tor and clearnet available",
+		},
+		&cli.BoolFlag{
+			Name:  "only-onion",
+			Usage: "Restrict to .onion addresses only (requires --tor-proxy)",
+		},
 	}
 
 	app = flags.NewApp("lightweight Ethereum P2P relay node")
@@ -155,6 +168,11 @@ func main() {
 func runRelay(ctx *cli.Context) error {
 	if args := ctx.Args().Slice(); len(args) > 0 {
 		return fmt.Errorf("invalid command: %q", args[0])
+	}
+
+	// Validate Tor configuration
+	if ctx.Bool("only-onion") && !ctx.IsSet("tor-proxy") {
+		return fmt.Errorf("--only-onion requires --tor-proxy to be set")
 	}
 
 	// Load chain configuration
@@ -252,11 +270,15 @@ func runRelay(ctx *cli.Context) error {
 	// Create minimal node (no database)
 	nodeConfig := &node.Config{
 		P2P: p2p.Config{
-			MaxPeers: ctx.Int("maxpeers"),
-			ListenAddr: fmt.Sprintf(":%d", ctx.Int("port")),
-			DiscoveryV4: ctx.Bool("v4disc"),
-			DiscoveryV5: ctx.Bool("v5disc"),
-			NoDiscovery: ctx.Bool("nodiscover"),
+			MaxPeers:      ctx.Int("maxpeers"),
+			ListenAddr:    fmt.Sprintf(":%d", ctx.Int("port")),
+			DiscoveryV4:   ctx.Bool("v4disc"),
+			DiscoveryV5:   ctx.Bool("v5disc"),
+			NoDiscovery:   ctx.Bool("nodiscover"),
+			// Tor configuration
+			TorSOCKSProxy: ctx.String("tor-proxy"),
+			PreferTor:     ctx.Bool("prefer-tor"),
+			OnlyOnion:     ctx.Bool("only-onion"),
 		},
 		UserIdent: ctx.String("identity"),
 		// HTTP RPC will be set up manually via setupRPCProxy

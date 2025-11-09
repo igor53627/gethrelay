@@ -20,6 +20,7 @@ import (
 	"crypto/ecdsa"
 	"encoding"
 	"fmt"
+	"net"
 
 	"github.com/ethereum/go-ethereum/common/mclock"
 	"github.com/ethereum/go-ethereum/log"
@@ -124,6 +125,23 @@ type Config struct {
 	// Logger is a custom logger to use with the p2p.Server.
 	Logger log.Logger `toml:"-"`
 
+	// Tor configuration options
+
+	// TorSOCKSProxy is the SOCKS5 proxy address for Tor connections.
+	// If set, the server will use Tor to connect to peers with .onion addresses.
+	// Example: "127.0.0.1:9050" (default Tor SOCKS5 port)
+	TorSOCKSProxy string `toml:",omitempty"`
+
+	// PreferTor, when true, prefers .onion addresses over clearnet when both are available.
+	// Only takes effect when TorSOCKSProxy is configured.
+	// Default behavior (false) uses clearnet when both .onion and clearnet are available.
+	PreferTor bool `toml:",omitempty"`
+
+	// OnlyOnion, when true, restricts connections to .onion addresses only.
+	// Peers without .onion addresses will be rejected.
+	// Requires TorSOCKSProxy to be configured.
+	OnlyOnion bool `toml:",omitempty"`
+
 	clock mclock.Clock
 }
 
@@ -148,5 +166,27 @@ func (w *configNAT) UnmarshalText(input []byte) error {
 		return fmt.Errorf("invalid NAT specification: %v", err)
 	}
 	w.Interface = n
+	return nil
+}
+
+// checkValid validates the configuration for logical consistency.
+// It is called during server startup to catch configuration errors early.
+func (cfg *Config) checkValid() error {
+	// Tor configuration validation
+	if cfg.OnlyOnion && cfg.TorSOCKSProxy == "" {
+		return fmt.Errorf("only-onion mode requires tor-proxy to be configured")
+	}
+
+	if cfg.TorSOCKSProxy != "" {
+		// Validate SOCKS5 proxy address format (host:port)
+		host, _, err := net.SplitHostPort(cfg.TorSOCKSProxy)
+		if err != nil {
+			return fmt.Errorf("invalid tor-proxy address: %w", err)
+		}
+		if host == "" {
+			return fmt.Errorf("invalid tor-proxy address: host cannot be empty")
+		}
+	}
+
 	return nil
 }

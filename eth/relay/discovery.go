@@ -18,12 +18,14 @@ package relay
 
 import (
 	"context"
+	"errors"
 
 	"github.com/ethereum/go-ethereum/core/forkid"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/p2p"
 	"github.com/ethereum/go-ethereum/p2p/dnsdisc"
 	"github.com/ethereum/go-ethereum/p2p/enode"
+	"github.com/ethereum/go-ethereum/p2p/enr"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rlp"
 )
@@ -153,5 +155,51 @@ func MakeRelayDialCandidates(
 		return enode.Filter(nil, func(*enode.Node) bool { return false })
 	}
 	return discmix
+}
+
+// SetOnionAddress sets the Tor v3 onion address in the local node's ENR.
+// The address will be validated and encoded into the ENR, triggering
+// ENR sequence number increment and re-signing.
+//
+// The onionAddr must be a valid Tor v3 address consisting of 56 base32
+// characters followed by ".onion" (e.g., "vww6ybal4bd7szmgncyruucpgfkqahzddi37ktceo3ah7ngmcopnpyyd.onion").
+//
+// Returns an error if the local node is nil or if the address is invalid.
+func SetOnionAddress(localNode *enode.LocalNode, onionAddr string) error {
+	if localNode == nil {
+		return errors.New("local node is nil")
+	}
+	// Create the onion entry - this validates the address during RLP encoding
+	onion := enr.Onion3(onionAddr)
+	// Eagerly validate by attempting to encode
+	if _, err := rlp.EncodeToBytes(onion); err != nil {
+		return err
+	}
+	// Set in ENR (validation passed)
+	localNode.Set(onion)
+	return nil
+}
+
+// GetPeerOnionAddress retrieves the Tor v3 onion address from a peer's ENR.
+// Returns the address and true if present, empty string and false otherwise.
+//
+// This function can be used to determine if a peer is accessible via Tor
+// and to get the .onion address for establishing Tor circuits.
+//
+// Example usage:
+//
+//	if onionAddr, hasOnion := GetPeerOnionAddress(peer); hasOnion {
+//	    log.Info("Peer accessible via Tor", "onion", onionAddr)
+//	    // Establish connection via Tor using onionAddr
+//	}
+func GetPeerOnionAddress(peer *enode.Node) (string, bool) {
+	if peer == nil {
+		return "", false
+	}
+	var onion enr.Onion3
+	if err := peer.Load(&onion); err != nil {
+		return "", false
+	}
+	return string(onion), true
 }
 

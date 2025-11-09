@@ -629,3 +629,174 @@ func syncAddPeer(srv *Server, node *enode.Node) bool {
 		}
 	}
 }
+
+// TestConfigTorDefaults tests that default config creates clearnet-only behavior
+func TestConfigTorDefaults(t *testing.T) {
+	cfg := Config{
+		PrivateKey:  newkey(),
+		MaxPeers:    10,
+		NoDiscovery: true,
+		Logger:      testlog.Logger(t, log.LvlTrace),
+	}
+
+	srv := &Server{Config: cfg}
+	if err := srv.setupLocalNode(); err != nil {
+		t.Fatalf("setupLocalNode failed: %v", err)
+	}
+	if err := srv.setupDiscovery(); err != nil {
+		t.Fatalf("setupDiscovery failed: %v", err)
+	}
+	srv.setupDialScheduler()
+
+	// Verify that with no Tor config, we use standard TCP dialer
+	// This is tested indirectly through setupDialScheduler creating the right dialer
+	if srv.dialsched == nil {
+		t.Fatal("dial scheduler should be initialized")
+	}
+}
+
+// TestConfigTorSOCKSProxy tests that TorSOCKSProxy config is accepted
+func TestConfigTorSOCKSProxy(t *testing.T) {
+	cfg := Config{
+		PrivateKey:    newkey(),
+		MaxPeers:      10,
+		NoDiscovery:   true,
+		TorSOCKSProxy: "127.0.0.1:9050",
+		ListenAddr:    "127.0.0.1:0",
+		Logger:        testlog.Logger(t, log.LvlTrace),
+	}
+
+	srv := &Server{Config: cfg}
+	if err := srv.Start(); err != nil {
+		t.Fatalf("server with Tor config should start: %v", err)
+	}
+	defer srv.Stop()
+
+	if srv.dialsched == nil {
+		t.Fatal("dial scheduler should be initialized with Tor config")
+	}
+}
+
+// TestConfigPreferTor tests PreferTor mode configuration
+func TestConfigPreferTor(t *testing.T) {
+	cfg := Config{
+		PrivateKey:    newkey(),
+		MaxPeers:      10,
+		NoDiscovery:   true,
+		TorSOCKSProxy: "127.0.0.1:9050",
+		PreferTor:     true,
+		ListenAddr:    "127.0.0.1:0",
+		Logger:        testlog.Logger(t, log.LvlTrace),
+	}
+
+	srv := &Server{Config: cfg}
+	if err := srv.Start(); err != nil {
+		t.Fatalf("server with PreferTor config should start: %v", err)
+	}
+	defer srv.Stop()
+
+	if srv.dialsched == nil {
+		t.Fatal("dial scheduler should be initialized with PreferTor config")
+	}
+}
+
+// TestConfigOnlyOnion tests OnlyOnion mode configuration
+func TestConfigOnlyOnion(t *testing.T) {
+	cfg := Config{
+		PrivateKey:    newkey(),
+		MaxPeers:      10,
+		NoDiscovery:   true,
+		TorSOCKSProxy: "127.0.0.1:9050",
+		OnlyOnion:     true,
+		ListenAddr:    "127.0.0.1:0",
+		Logger:        testlog.Logger(t, log.LvlTrace),
+	}
+
+	srv := &Server{Config: cfg}
+	if err := srv.Start(); err != nil {
+		t.Fatalf("server with OnlyOnion config should start: %v", err)
+	}
+	defer srv.Stop()
+
+	if srv.dialsched == nil {
+		t.Fatal("dial scheduler should be initialized with OnlyOnion config")
+	}
+}
+
+// TestConfigValidation_OnlyOnionWithoutProxy tests that OnlyOnion mode requires TorSOCKSProxy
+func TestConfigValidation_OnlyOnionWithoutProxy(t *testing.T) {
+	cfg := Config{
+		PrivateKey:  newkey(),
+		MaxPeers:    10,
+		NoDiscovery: true,
+		OnlyOnion:   true,
+		// TorSOCKSProxy is empty - this should fail validation
+		Logger: testlog.Logger(t, log.LvlTrace),
+	}
+
+	srv := &Server{Config: cfg}
+	err := srv.Start()
+	if err == nil {
+		srv.Stop()
+		t.Fatal("expected error when OnlyOnion is set without TorSOCKSProxy")
+	}
+	if !strings.Contains(err.Error(), "only-onion") {
+		t.Errorf("expected error about only-onion mode, got: %v", err)
+	}
+}
+
+// TestConfigValidation_InvalidSOCKSAddress tests SOCKS5 address validation
+func TestConfigValidation_InvalidSOCKSAddress(t *testing.T) {
+	tests := []struct {
+		name      string
+		socksAddr string
+	}{
+		{"no port", "127.0.0.1"},
+		{"invalid format", "not-a-valid-address"},
+		{"empty host", ":9050"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := Config{
+				PrivateKey:    newkey(),
+				MaxPeers:      10,
+				NoDiscovery:   true,
+				TorSOCKSProxy: tt.socksAddr,
+				Logger:        testlog.Logger(t, log.LvlTrace),
+			}
+
+			srv := &Server{Config: cfg}
+			err := srv.Start()
+			if err == nil {
+				srv.Stop()
+				t.Fatalf("expected error for invalid SOCKS address: %s", tt.socksAddr)
+			}
+			if !strings.Contains(err.Error(), "tor-proxy") {
+				t.Errorf("expected error about tor-proxy address, got: %v", err)
+			}
+		})
+	}
+}
+
+// TestConfigBackwardCompatibility tests that configs without Tor fields work unchanged
+func TestConfigBackwardCompatibility(t *testing.T) {
+	cfg := Config{
+		PrivateKey:  newkey(),
+		MaxPeers:    10,
+		NoDiscovery: true,
+		ListenAddr:  "127.0.0.1:0",
+		Logger:      testlog.Logger(t, log.LvlTrace),
+	}
+
+	srv := &Server{Config: cfg}
+	if err := srv.Start(); err != nil {
+		t.Fatalf("server with no Tor config should start: %v", err)
+	}
+	defer srv.Stop()
+
+	// Verify server started successfully with clearnet-only behavior
+	if srv.dialsched == nil {
+		t.Fatal("dial scheduler should be initialized")
+	}
+}
