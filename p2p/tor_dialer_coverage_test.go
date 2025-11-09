@@ -248,6 +248,44 @@ func TestTorDialer_EdgeCases(t *testing.T) {
 		}
 		conn.Close()
 	})
+
+	t.Run("PreferTorWithClearnetFallback", func(t *testing.T) {
+		// Test prefer-tor mode where Tor fails and falls back to clearnet
+		// This covers the clearnet fallback path at line 125
+		onionAddr := generateValidOnion3()
+		node := createTestNode(t, onionAddr, net.IPv4(192, 168, 1, 1), 30303) // Has both .onion and clearnet
+
+		clearnetCalled := false
+		mockClearnet := &mockDialer{
+			dialFunc: func(ctx context.Context, dest *enode.Node) (net.Conn, error) {
+				clearnetCalled = true
+				client, server := net.Pipe()
+				go func() {
+					io.Copy(io.Discard, server)
+					server.Close()
+				}()
+				return client, nil
+			},
+		}
+
+		// Use unreachable SOCKS5 proxy to force Tor failure
+		torDialer := NewTorDialer("127.0.0.1:9999", mockClearnet, true, false) // prefer-tor=true, only-onion=false
+
+		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+		defer cancel()
+
+		conn, err := torDialer.Dial(ctx, node)
+		if err != nil {
+			t.Fatalf("expected successful clearnet fallback, got error: %v", err)
+		}
+		if conn == nil {
+			t.Fatal("expected connection via clearnet fallback")
+		}
+		if !clearnetCalled {
+			t.Fatal("expected clearnet dialer to be called as fallback")
+		}
+		conn.Close()
+	})
 }
 
 // startMockSOCKS5Server starts a mock SOCKS5 server that calls targetValidator on each connect request.
