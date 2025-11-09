@@ -376,6 +376,11 @@ func (srv *Server) Start() (err error) {
 		srv.log.Warn("P2P server will be useless, neither dialing nor listening")
 	}
 
+	// Validate configuration
+	if err := srv.Config.checkValid(); err != nil {
+		return err
+	}
+
 	// static fields
 	if srv.PrivateKey == nil {
 		return errors.New("Server.PrivateKey must be set to a non-nil key")
@@ -532,7 +537,20 @@ func (srv *Server) setupDialScheduler() {
 		config.resolver = srv.discv4
 	}
 	if config.dialer == nil {
-		config.dialer = tcpDialer{&net.Dialer{Timeout: defaultDialTimeout}}
+		// Create base TCP dialer
+		baseDial := tcpDialer{&net.Dialer{Timeout: defaultDialTimeout}}
+
+		// Inject TorDialer if configured
+		if srv.Config.TorSOCKSProxy != "" {
+			config.dialer = NewTorDialer(
+				srv.Config.TorSOCKSProxy,
+				baseDial,
+				srv.Config.PreferTor,
+				srv.Config.OnlyOnion,
+			)
+		} else {
+			config.dialer = baseDial
+		}
 	}
 	srv.dialsched = newDialScheduler(config, srv.discmix, srv.SetupConn)
 	for _, n := range srv.StaticNodes {

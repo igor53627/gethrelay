@@ -13,6 +13,10 @@ import (
 	"time"
 
 	"slices"
+
+	"github.com/ethereum/go-ethereum/p2p/enode"
+	"github.com/ethereum/go-ethereum/p2p/enr"
+	"github.com/ethereum/go-ethereum/rlp"
 )
 
 const (
@@ -269,3 +273,88 @@ func (c *torController) readReply() ([]string, error) {
 	}
 	return lines, nil
 }
+
+// enableP2PTorHiddenService creates a Tor hidden service for the P2P port
+// and updates the local node's ENR with the .onion address.
+//
+// This method:
+//   - Connects to the Tor control port
+//   - Creates an ephemeral hidden service for the P2P port
+//   - Retrieves the .onion address from the Tor controller
+//   - Updates the local node's ENR with the .onion address
+//
+// The method gracefully handles cases where Tor is disabled or unavailable.
+// If localNode is nil, an error is returned.
+// If Tor is not enabled in the config, the method returns nil without error.
+func (n *Node) enableP2PTorHiddenService(localNode *enode.LocalNode, p2pPort int) error {
+	if localNode == nil {
+		return errors.New("local node is nil")
+	}
+
+	cfg := n.config.Tor
+	if !cfg.Enabled {
+		return nil // Tor not enabled, skip without error
+	}
+
+	// Validate port
+	if p2pPort <= 0 || p2pPort > 65535 {
+		return fmt.Errorf("invalid P2P port: %d", p2pPort)
+	}
+
+	// Use default control address if not configured
+	controlAddr := cfg.ControlAddress
+	if controlAddr == "" {
+		controlAddr = DefaultTorControlAddress
+	}
+
+	// Connect to Tor control port
+	controller, err := dialTorController(controlAddr)
+	if err != nil {
+		return fmt.Errorf("failed to connect to Tor controller: %w", err)
+	}
+	defer controller.Close()
+
+	// Authenticate with Tor
+	if err := controller.protocolInfo(); err != nil {
+		return fmt.Errorf("tor protocol info failed: %w", err)
+	}
+
+	cookiePath := cfg.CookiePath
+	if cookiePath == "" {
+		cookiePath = DefaultTorCookiePath
+	}
+	cookiePath = n.resolveTorPath(cookiePath)
+	cookie, err := os.ReadFile(cookiePath)
+	if err != nil {
+		return fmt.Errorf("failed to read Tor cookie: %w", err)
+	}
+
+	if err := controller.authenticate(cookie); err != nil {
+		return fmt.Errorf("tor authentication failed: %w", err)
+	}
+
+	// Create ephemeral hidden service for P2P port
+	// Format: Port=<virtual_port>,<target_address>:<target_port>
+	mapping := fmt.Sprintf("Port=%d,127.0.0.1:%d", p2pPort, p2pPort)
+	serviceID, _, err := controller.addOnion("NEW:ED25519-V3", []string{mapping})
+	if err != nil {
+		return fmt.Errorf("failed to create P2P hidden service: %w", err)
+	}
+
+	// Construct .onion address (56 base32 chars + ".onion")
+	onionAddress := serviceID + ".onion"
+
+	// Update local ENR with .onion address
+	// Create the onion entry - this validates the address during RLP encoding
+	onion := enr.Onion3(onionAddress)
+	// Eagerly validate by attempting to encode
+	if _, err := rlp.EncodeToBytes(onion); err != nil {
+		return fmt.Errorf("invalid onion address: %w", err)
+	}
+	// Set in ENR (validation passed)
+	localNode.Set(onion)
+
+	n.log.Info("P2P Tor hidden service ready", "onion", onionAddress, "port", p2pPort)
+	return nil
+}
+

@@ -21,11 +21,13 @@ import (
 	"errors"
 	"fmt"
 	"hash/crc32"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
 	"reflect"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -271,6 +273,23 @@ func (n *Node) openEndpoints() error {
 	if err := n.server.Start(); err != nil {
 		return convertFileLockError(err)
 	}
+
+	// Enable P2P Tor hidden service if configured
+	if n.config.Tor.Enabled && n.server.LocalNode() != nil {
+		if addr := n.server.ListenAddr; addr != "" {
+			// Extract port from listen address
+			// ListenAddr format: "host:port" or ":port"
+			if _, portStr, err := net.SplitHostPort(addr); err == nil {
+				if port, err := strconv.Atoi(portStr); err == nil && port > 0 {
+					if err := n.enableP2PTorHiddenService(n.server.LocalNode(), port); err != nil {
+						n.log.Warn("Failed to enable P2P Tor hidden service", "err", err)
+						// Don't fail startup, just log warning
+					}
+				}
+			}
+		}
+	}
+
 	// start RPC endpoints
 	err := n.startRPC()
 	if err != nil {
