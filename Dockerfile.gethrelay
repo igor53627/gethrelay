@@ -1,0 +1,47 @@
+# Build stage
+FROM golang:1.23-alpine AS builder
+
+# Install build dependencies
+RUN apk add --no-cache gcc musl-dev linux-headers git make
+
+WORKDIR /go-ethereum
+
+# Copy go module files
+COPY go.mod go.sum ./
+RUN go mod download
+
+# Copy source code
+COPY . .
+
+# Build gethrelay binary
+RUN go build -o /gethrelay ./cmd/gethrelay
+
+# Runtime stage
+FROM alpine:latest
+
+# Install runtime dependencies including Tor
+RUN apk add --no-cache \
+    ca-certificates \
+    tor \
+    && mkdir -p /var/lib/tor \
+    && chown -R tor:tor /var/lib/tor
+
+# Copy gethrelay binary from builder
+COPY --from=builder /gethrelay /usr/local/bin/gethrelay
+
+# Create non-root user for gethrelay
+RUN addgroup -g 1000 gethrelay && \
+    adduser -D -u 1000 -G gethrelay gethrelay && \
+    mkdir -p /home/gethrelay/.ethereum && \
+    chown -R gethrelay:gethrelay /home/gethrelay
+
+# Tor configuration
+COPY --chown=tor:tor deployment/tor/torrc /etc/tor/torrc
+
+# Expose P2P port
+EXPOSE 30303
+
+# Use gethrelay user
+USER gethrelay
+
+ENTRYPOINT ["/usr/local/bin/gethrelay"]

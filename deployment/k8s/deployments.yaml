@@ -1,0 +1,710 @@
+---
+# ConfigMap for common configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: gethrelay-config
+  namespace: gethrelay
+data:
+  CHAIN: "mainnet"
+  MAX_PEERS: "200"
+  PORT: "30303"
+  RPC_UPSTREAM: "https://ethereum-rpc.publicnode.com"
+  V5DISC: "true"
+
+---
+# Deployment 1: Default mode (no Tor preference)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gethrelay-default-1
+  namespace: gethrelay
+  labels:
+    app: gethrelay
+    mode: default
+    instance: "1"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: gethrelay
+      instance: default-1
+  template:
+    metadata:
+      labels:
+        app: gethrelay
+        instance: default-1
+        mode: default
+    spec:
+      containers:
+      - name: tor
+        image: alpine/tor:latest
+        ports:
+        - containerPort: 9050
+          name: socks
+        - containerPort: 9051
+          name: control
+        volumeMounts:
+        - name: tor-data
+          mountPath: /var/lib/tor
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+      - name: gethrelay
+        image: ghcr.io/igor53627/gethrelay:latest
+        args:
+        - --chain=$(CHAIN)
+        - --maxpeers=$(MAX_PEERS)
+        - --port=$(PORT)
+        - --v5disc
+        - --tor-proxy=127.0.0.1:9050
+        - --rpc.upstream=$(RPC_UPSTREAM)
+        envFrom:
+        - configMapRef:
+            name: gethrelay-config
+        ports:
+        - containerPort: 30303
+          name: p2p
+          protocol: TCP
+        resources:
+          requests:
+            cpu: 200m
+            memory: 256Mi
+          limits:
+            cpu: 1000m
+            memory: 1Gi
+      volumes:
+      - name: tor-data
+        emptyDir: {}
+
+---
+# Deployment 2: Default mode (no Tor preference)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gethrelay-default-2
+  namespace: gethrelay
+  labels:
+    app: gethrelay
+    mode: default
+    instance: "2"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: gethrelay
+      instance: default-2
+  template:
+    metadata:
+      labels:
+        app: gethrelay
+        instance: default-2
+        mode: default
+    spec:
+      containers:
+      - name: tor
+        image: alpine/tor:latest
+        ports:
+        - containerPort: 9050
+          name: socks
+        - containerPort: 9051
+          name: control
+        volumeMounts:
+        - name: tor-data
+          mountPath: /var/lib/tor
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+      - name: gethrelay
+        image: ghcr.io/igor53627/gethrelay:latest
+        args:
+        - --chain=$(CHAIN)
+        - --maxpeers=$(MAX_PEERS)
+        - --port=$(PORT)
+        - --v5disc
+        - --tor-proxy=127.0.0.1:9050
+        - --rpc.upstream=$(RPC_UPSTREAM)
+        envFrom:
+        - configMapRef:
+            name: gethrelay-config
+        ports:
+        - containerPort: 30303
+          name: p2p
+          protocol: TCP
+        resources:
+          requests:
+            cpu: 200m
+            memory: 256Mi
+          limits:
+            cpu: 1000m
+            memory: 1Gi
+      volumes:
+      - name: tor-data
+        emptyDir: {}
+
+---
+# Deployment 3: Default mode (no Tor preference)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gethrelay-default-3
+  namespace: gethrelay
+  labels:
+    app: gethrelay
+    mode: default
+    instance: "3"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: gethrelay
+      instance: default-3
+  template:
+    metadata:
+      labels:
+        app: gethrelay
+        instance: default-3
+        mode: default
+    spec:
+      containers:
+      - name: tor
+        image: alpine/tor:latest
+        ports:
+        - containerPort: 9050
+          name: socks
+        - containerPort: 9051
+          name: control
+        volumeMounts:
+        - name: tor-data
+          mountPath: /var/lib/tor
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+      - name: gethrelay
+        image: ghcr.io/igor53627/gethrelay:latest
+        args:
+        - --chain=$(CHAIN)
+        - --maxpeers=$(MAX_PEERS)
+        - --port=$(PORT)
+        - --v5disc
+        - --tor-proxy=127.0.0.1:9050
+        - --rpc.upstream=$(RPC_UPSTREAM)
+        envFrom:
+        - configMapRef:
+            name: gethrelay-config
+        ports:
+        - containerPort: 30303
+          name: p2p
+          protocol: TCP
+        resources:
+          requests:
+            cpu: 200m
+            memory: 256Mi
+          limits:
+            cpu: 1000m
+            memory: 1Gi
+      volumes:
+      - name: tor-data
+        emptyDir: {}
+
+---
+# Deployment 4: Prefer Tor mode
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gethrelay-prefer-tor-1
+  namespace: gethrelay
+  labels:
+    app: gethrelay
+    mode: prefer-tor
+    instance: "4"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: gethrelay
+      instance: prefer-tor-1
+  template:
+    metadata:
+      labels:
+        app: gethrelay
+        instance: prefer-tor-1
+        mode: prefer-tor
+    spec:
+      containers:
+      - name: tor
+        image: alpine/tor:latest
+        ports:
+        - containerPort: 9050
+          name: socks
+        - containerPort: 9051
+          name: control
+        volumeMounts:
+        - name: tor-data
+          mountPath: /var/lib/tor
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+      - name: gethrelay
+        image: ghcr.io/igor53627/gethrelay:latest
+        args:
+        - --chain=$(CHAIN)
+        - --maxpeers=$(MAX_PEERS)
+        - --port=$(PORT)
+        - --v5disc
+        - --tor-proxy=127.0.0.1:9050
+        - --prefer-tor
+        - --rpc.upstream=$(RPC_UPSTREAM)
+        envFrom:
+        - configMapRef:
+            name: gethrelay-config
+        ports:
+        - containerPort: 30303
+          name: p2p
+          protocol: TCP
+        resources:
+          requests:
+            cpu: 200m
+            memory: 256Mi
+          limits:
+            cpu: 1000m
+            memory: 1Gi
+      volumes:
+      - name: tor-data
+        emptyDir: {}
+
+---
+# Deployment 5: Prefer Tor mode
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gethrelay-prefer-tor-2
+  namespace: gethrelay
+  labels:
+    app: gethrelay
+    mode: prefer-tor
+    instance: "5"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: gethrelay
+      instance: prefer-tor-2
+  template:
+    metadata:
+      labels:
+        app: gethrelay
+        instance: prefer-tor-2
+        mode: prefer-tor
+    spec:
+      containers:
+      - name: tor
+        image: alpine/tor:latest
+        ports:
+        - containerPort: 9050
+          name: socks
+        - containerPort: 9051
+          name: control
+        volumeMounts:
+        - name: tor-data
+          mountPath: /var/lib/tor
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+      - name: gethrelay
+        image: ghcr.io/igor53627/gethrelay:latest
+        args:
+        - --chain=$(CHAIN)
+        - --maxpeers=$(MAX_PEERS)
+        - --port=$(PORT)
+        - --v5disc
+        - --tor-proxy=127.0.0.1:9050
+        - --prefer-tor
+        - --rpc.upstream=$(RPC_UPSTREAM)
+        envFrom:
+        - configMapRef:
+            name: gethrelay-config
+        ports:
+        - containerPort: 30303
+          name: p2p
+          protocol: TCP
+        resources:
+          requests:
+            cpu: 200m
+            memory: 256Mi
+          limits:
+            cpu: 1000m
+            memory: 1Gi
+      volumes:
+      - name: tor-data
+        emptyDir: {}
+
+---
+# Deployment 6: Prefer Tor mode
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gethrelay-prefer-tor-3
+  namespace: gethrelay
+  labels:
+    app: gethrelay
+    mode: prefer-tor
+    instance: "6"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: gethrelay
+      instance: prefer-tor-3
+  template:
+    metadata:
+      labels:
+        app: gethrelay
+        instance: prefer-tor-3
+        mode: prefer-tor
+    spec:
+      containers:
+      - name: tor
+        image: alpine/tor:latest
+        ports:
+        - containerPort: 9050
+          name: socks
+        - containerPort: 9051
+          name: control
+        volumeMounts:
+        - name: tor-data
+          mountPath: /var/lib/tor
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+      - name: gethrelay
+        image: ghcr.io/igor53627/gethrelay:latest
+        args:
+        - --chain=$(CHAIN)
+        - --maxpeers=$(MAX_PEERS)
+        - --port=$(PORT)
+        - --v5disc
+        - --tor-proxy=127.0.0.1:9050
+        - --prefer-tor
+        - --rpc.upstream=$(RPC_UPSTREAM)
+        envFrom:
+        - configMapRef:
+            name: gethrelay-config
+        ports:
+        - containerPort: 30303
+          name: p2p
+          protocol: TCP
+        resources:
+          requests:
+            cpu: 200m
+            memory: 256Mi
+          limits:
+            cpu: 1000m
+            memory: 1Gi
+      volumes:
+      - name: tor-data
+        emptyDir: {}
+
+---
+# Deployment 7: Prefer Tor mode
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gethrelay-prefer-tor-4
+  namespace: gethrelay
+  labels:
+    app: gethrelay
+    mode: prefer-tor
+    instance: "7"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: gethrelay
+      instance: prefer-tor-4
+  template:
+    metadata:
+      labels:
+        app: gethrelay
+        instance: prefer-tor-4
+        mode: prefer-tor
+    spec:
+      containers:
+      - name: tor
+        image: alpine/tor:latest
+        ports:
+        - containerPort: 9050
+          name: socks
+        - containerPort: 9051
+          name: control
+        volumeMounts:
+        - name: tor-data
+          mountPath: /var/lib/tor
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+      - name: gethrelay
+        image: ghcr.io/igor53627/gethrelay:latest
+        args:
+        - --chain=$(CHAIN)
+        - --maxpeers=$(MAX_PEERS)
+        - --port=$(PORT)
+        - --v5disc
+        - --tor-proxy=127.0.0.1:9050
+        - --prefer-tor
+        - --rpc.upstream=$(RPC_UPSTREAM)
+        envFrom:
+        - configMapRef:
+            name: gethrelay-config
+        ports:
+        - containerPort: 30303
+          name: p2p
+          protocol: TCP
+        resources:
+          requests:
+            cpu: 200m
+            memory: 256Mi
+          limits:
+            cpu: 1000m
+            memory: 1Gi
+      volumes:
+      - name: tor-data
+        emptyDir: {}
+
+---
+# Deployment 8: Tor-Only mode
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gethrelay-only-onion-1
+  namespace: gethrelay
+  labels:
+    app: gethrelay
+    mode: only-onion
+    instance: "8"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: gethrelay
+      instance: only-onion-1
+  template:
+    metadata:
+      labels:
+        app: gethrelay
+        instance: only-onion-1
+        mode: only-onion
+    spec:
+      containers:
+      - name: tor
+        image: alpine/tor:latest
+        ports:
+        - containerPort: 9050
+          name: socks
+        - containerPort: 9051
+          name: control
+        volumeMounts:
+        - name: tor-data
+          mountPath: /var/lib/tor
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+      - name: gethrelay
+        image: ghcr.io/igor53627/gethrelay:latest
+        args:
+        - --chain=$(CHAIN)
+        - --maxpeers=$(MAX_PEERS)
+        - --port=$(PORT)
+        - --v5disc
+        - --tor-proxy=127.0.0.1:9050
+        - --only-onion
+        - --rpc.upstream=$(RPC_UPSTREAM)
+        envFrom:
+        - configMapRef:
+            name: gethrelay-config
+        ports:
+        - containerPort: 30303
+          name: p2p
+          protocol: TCP
+        resources:
+          requests:
+            cpu: 200m
+            memory: 256Mi
+          limits:
+            cpu: 1000m
+            memory: 1Gi
+      volumes:
+      - name: tor-data
+        emptyDir: {}
+
+---
+# Deployment 9: Tor-Only mode
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gethrelay-only-onion-2
+  namespace: gethrelay
+  labels:
+    app: gethrelay
+    mode: only-onion
+    instance: "9"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: gethrelay
+      instance: only-onion-2
+  template:
+    metadata:
+      labels:
+        app: gethrelay
+        instance: only-onion-2
+        mode: only-onion
+    spec:
+      containers:
+      - name: tor
+        image: alpine/tor:latest
+        ports:
+        - containerPort: 9050
+          name: socks
+        - containerPort: 9051
+          name: control
+        volumeMounts:
+        - name: tor-data
+          mountPath: /var/lib/tor
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+      - name: gethrelay
+        image: ghcr.io/igor53627/gethrelay:latest
+        args:
+        - --chain=$(CHAIN)
+        - --maxpeers=$(MAX_PEERS)
+        - --port=$(PORT)
+        - --v5disc
+        - --tor-proxy=127.0.0.1:9050
+        - --only-onion
+        - --rpc.upstream=$(RPC_UPSTREAM)
+        envFrom:
+        - configMapRef:
+            name: gethrelay-config
+        ports:
+        - containerPort: 30303
+          name: p2p
+          protocol: TCP
+        resources:
+          requests:
+            cpu: 200m
+            memory: 256Mi
+          limits:
+            cpu: 1000m
+            memory: 1Gi
+      volumes:
+      - name: tor-data
+        emptyDir: {}
+
+---
+# Deployment 10: Tor-Only mode
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gethrelay-only-onion-3
+  namespace: gethrelay
+  labels:
+    app: gethrelay
+    mode: only-onion
+    instance: "10"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: gethrelay
+      instance: only-onion-3
+  template:
+    metadata:
+      labels:
+        app: gethrelay
+        instance: only-onion-3
+        mode: only-onion
+    spec:
+      containers:
+      - name: tor
+        image: alpine/tor:latest
+        ports:
+        - containerPort: 9050
+          name: socks
+        - containerPort: 9051
+          name: control
+        volumeMounts:
+        - name: tor-data
+          mountPath: /var/lib/tor
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+      - name: gethrelay
+        image: ghcr.io/igor53627/gethrelay:latest
+        args:
+        - --chain=$(CHAIN)
+        - --maxpeers=$(MAX_PEERS)
+        - --port=$(PORT)
+        - --v5disc
+        - --tor-proxy=127.0.0.1:9050
+        - --only-onion
+        - --rpc.upstream=$(RPC_UPSTREAM)
+        envFrom:
+        - configMapRef:
+            name: gethrelay-config
+        ports:
+        - containerPort: 30303
+          name: p2p
+          protocol: TCP
+        resources:
+          requests:
+            cpu: 200m
+            memory: 256Mi
+          limits:
+            cpu: 1000m
+            memory: 1Gi
+      volumes:
+      - name: tor-data
+        emptyDir: {}
