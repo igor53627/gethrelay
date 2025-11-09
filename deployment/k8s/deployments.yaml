@@ -13,6 +13,73 @@ data:
   V5DISC: "true"
 
 ---
+# ConfigMap for Tor configuration with hidden service (for tor-only and prefer-tor)
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: torrc-with-hidden-service
+  namespace: gethrelay
+data:
+  torrc: |
+    # Tor configuration for gethrelay with P2P hidden service
+    # Used for tor-only and prefer-tor instances
+
+    # SOCKS5 proxy on port 9050
+    SocksPort 0.0.0.0:9050
+
+    # Control port for hidden service management
+    ControlPort 9051
+
+    # Cookie authentication
+    CookieAuthentication 1
+    CookieAuthFile /var/lib/tor/control_auth_cookie
+
+    # Data directory
+    DataDirectory /var/lib/tor
+
+    # Hidden service configuration for P2P port
+    # This creates a persistent .onion address for the gethrelay P2P service
+    HiddenServiceDir /var/lib/tor/hidden_service
+    HiddenServicePort 30303 127.0.0.1:30303
+
+    # Logging
+    Log notice stdout
+
+    # Performance tuning
+    MaxCircuitDirtiness 60
+    CircuitBuildTimeout 30
+
+---
+# ConfigMap for basic Tor configuration (for default instances)
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: torrc-basic
+  namespace: gethrelay
+data:
+  torrc: |
+    # Tor configuration for gethrelay
+    # SOCKS5 proxy on port 9050
+    SocksPort 0.0.0.0:9050
+
+    # Control port for hidden service management
+    ControlPort 9051
+
+    # Cookie authentication
+    CookieAuthentication 1
+    CookieAuthFile /var/lib/tor/control_auth_cookie
+
+    # Data directory
+    DataDirectory /var/lib/tor
+
+    # Logging
+    Log notice stdout
+
+    # Performance tuning
+    MaxCircuitDirtiness 60
+    CircuitBuildTimeout 30
+
+---
 # Deployment 1: Default mode (no Tor preference)
 apiVersion: apps/v1
 kind: Deployment
@@ -46,6 +113,10 @@ spec:
           name: socks
         - containerPort: 9051
           name: control
+        volumeMounts:
+        - name: torrc
+          mountPath: /etc/tor/torrc
+          subPath: torrc
         resources:
           requests:
             cpu: 100m
@@ -76,6 +147,10 @@ spec:
           limits:
             cpu: 1000m
             memory: 1Gi
+      volumes:
+      - name: torrc
+        configMap:
+          name: torrc-basic
 
 ---
 # Deployment 2: Default mode (no Tor preference)
@@ -111,6 +186,10 @@ spec:
           name: socks
         - containerPort: 9051
           name: control
+        volumeMounts:
+        - name: torrc
+          mountPath: /etc/tor/torrc
+          subPath: torrc
         resources:
           requests:
             cpu: 100m
@@ -141,6 +220,10 @@ spec:
           limits:
             cpu: 1000m
             memory: 1Gi
+      volumes:
+      - name: torrc
+        configMap:
+          name: torrc-basic
 
 ---
 # Deployment 3: Default mode (no Tor preference)
@@ -176,6 +259,10 @@ spec:
           name: socks
         - containerPort: 9051
           name: control
+        volumeMounts:
+        - name: torrc
+          mountPath: /etc/tor/torrc
+          subPath: torrc
         resources:
           requests:
             cpu: 100m
@@ -206,11 +293,15 @@ spec:
           limits:
             cpu: 1000m
             memory: 1Gi
+      volumes:
+      - name: torrc
+        configMap:
+          name: torrc-basic
 
 ---
-# Deployment 4: Prefer Tor mode
+# StatefulSet 1: Prefer Tor mode with hidden service
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: gethrelay-prefer-tor-1
   namespace: gethrelay
@@ -219,6 +310,7 @@ metadata:
     mode: prefer-tor
     instance: "4"
 spec:
+  serviceName: gethrelay-prefer-tor-1
   replicas: 1
   selector:
     matchLabels:
@@ -233,6 +325,13 @@ spec:
     spec:
       securityContext:
         fsGroup: 100
+      initContainers:
+      - name: fix-permissions
+        image: busybox
+        command: ['sh', '-c', 'chown -R 100:100 /var/lib/tor && chmod -R 700 /var/lib/tor']
+        volumeMounts:
+        - name: tor-data
+          mountPath: /var/lib/tor
       containers:
       - name: tor
         image: dockurr/tor:latest
@@ -241,6 +340,12 @@ spec:
           name: socks
         - containerPort: 9051
           name: control
+        volumeMounts:
+        - name: torrc
+          mountPath: /etc/tor/torrc
+          subPath: torrc
+        - name: tor-data
+          mountPath: /var/lib/tor
         resources:
           requests:
             cpu: 100m
@@ -257,6 +362,8 @@ spec:
         - --v5disc
         - --tor-proxy=127.0.0.1:9050
         - --prefer-tor
+        - --tor-enabled
+        - --tor-control=127.0.0.1:9051
         - --rpc.upstream=$(RPC_UPSTREAM)
         envFrom:
         - configMapRef:
@@ -272,11 +379,23 @@ spec:
           limits:
             cpu: 1000m
             memory: 1Gi
+      volumes:
+      - name: torrc
+        configMap:
+          name: torrc-with-hidden-service
+  volumeClaimTemplates:
+  - metadata:
+      name: tor-data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 1Gi
 
 ---
-# Deployment 5: Prefer Tor mode
+# StatefulSet 2: Prefer Tor mode with hidden service
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: gethrelay-prefer-tor-2
   namespace: gethrelay
@@ -285,6 +404,7 @@ metadata:
     mode: prefer-tor
     instance: "5"
 spec:
+  serviceName: gethrelay-prefer-tor-2
   replicas: 1
   selector:
     matchLabels:
@@ -299,6 +419,13 @@ spec:
     spec:
       securityContext:
         fsGroup: 100
+      initContainers:
+      - name: fix-permissions
+        image: busybox
+        command: ['sh', '-c', 'chown -R 100:100 /var/lib/tor && chmod -R 700 /var/lib/tor']
+        volumeMounts:
+        - name: tor-data
+          mountPath: /var/lib/tor
       containers:
       - name: tor
         image: dockurr/tor:latest
@@ -307,6 +434,12 @@ spec:
           name: socks
         - containerPort: 9051
           name: control
+        volumeMounts:
+        - name: torrc
+          mountPath: /etc/tor/torrc
+          subPath: torrc
+        - name: tor-data
+          mountPath: /var/lib/tor
         resources:
           requests:
             cpu: 100m
@@ -323,6 +456,8 @@ spec:
         - --v5disc
         - --tor-proxy=127.0.0.1:9050
         - --prefer-tor
+        - --tor-enabled
+        - --tor-control=127.0.0.1:9051
         - --rpc.upstream=$(RPC_UPSTREAM)
         envFrom:
         - configMapRef:
@@ -338,11 +473,23 @@ spec:
           limits:
             cpu: 1000m
             memory: 1Gi
+      volumes:
+      - name: torrc
+        configMap:
+          name: torrc-with-hidden-service
+  volumeClaimTemplates:
+  - metadata:
+      name: tor-data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 1Gi
 
 ---
-# Deployment 6: Prefer Tor mode
+# StatefulSet 3: Prefer Tor mode with hidden service
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: gethrelay-prefer-tor-3
   namespace: gethrelay
@@ -351,6 +498,7 @@ metadata:
     mode: prefer-tor
     instance: "6"
 spec:
+  serviceName: gethrelay-prefer-tor-3
   replicas: 1
   selector:
     matchLabels:
@@ -365,6 +513,13 @@ spec:
     spec:
       securityContext:
         fsGroup: 100
+      initContainers:
+      - name: fix-permissions
+        image: busybox
+        command: ['sh', '-c', 'chown -R 100:100 /var/lib/tor && chmod -R 700 /var/lib/tor']
+        volumeMounts:
+        - name: tor-data
+          mountPath: /var/lib/tor
       containers:
       - name: tor
         image: dockurr/tor:latest
@@ -373,6 +528,12 @@ spec:
           name: socks
         - containerPort: 9051
           name: control
+        volumeMounts:
+        - name: torrc
+          mountPath: /etc/tor/torrc
+          subPath: torrc
+        - name: tor-data
+          mountPath: /var/lib/tor
         resources:
           requests:
             cpu: 100m
@@ -389,6 +550,8 @@ spec:
         - --v5disc
         - --tor-proxy=127.0.0.1:9050
         - --prefer-tor
+        - --tor-enabled
+        - --tor-control=127.0.0.1:9051
         - --rpc.upstream=$(RPC_UPSTREAM)
         envFrom:
         - configMapRef:
@@ -404,11 +567,23 @@ spec:
           limits:
             cpu: 1000m
             memory: 1Gi
+      volumes:
+      - name: torrc
+        configMap:
+          name: torrc-with-hidden-service
+  volumeClaimTemplates:
+  - metadata:
+      name: tor-data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 1Gi
 
 ---
-# Deployment 7: Prefer Tor mode
+# StatefulSet 4: Prefer Tor mode with hidden service
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: gethrelay-prefer-tor-4
   namespace: gethrelay
@@ -417,6 +592,7 @@ metadata:
     mode: prefer-tor
     instance: "7"
 spec:
+  serviceName: gethrelay-prefer-tor-4
   replicas: 1
   selector:
     matchLabels:
@@ -431,6 +607,13 @@ spec:
     spec:
       securityContext:
         fsGroup: 100
+      initContainers:
+      - name: fix-permissions
+        image: busybox
+        command: ['sh', '-c', 'chown -R 100:100 /var/lib/tor && chmod -R 700 /var/lib/tor']
+        volumeMounts:
+        - name: tor-data
+          mountPath: /var/lib/tor
       containers:
       - name: tor
         image: dockurr/tor:latest
@@ -439,6 +622,12 @@ spec:
           name: socks
         - containerPort: 9051
           name: control
+        volumeMounts:
+        - name: torrc
+          mountPath: /etc/tor/torrc
+          subPath: torrc
+        - name: tor-data
+          mountPath: /var/lib/tor
         resources:
           requests:
             cpu: 100m
@@ -455,6 +644,8 @@ spec:
         - --v5disc
         - --tor-proxy=127.0.0.1:9050
         - --prefer-tor
+        - --tor-enabled
+        - --tor-control=127.0.0.1:9051
         - --rpc.upstream=$(RPC_UPSTREAM)
         envFrom:
         - configMapRef:
@@ -470,11 +661,23 @@ spec:
           limits:
             cpu: 1000m
             memory: 1Gi
+      volumes:
+      - name: torrc
+        configMap:
+          name: torrc-with-hidden-service
+  volumeClaimTemplates:
+  - metadata:
+      name: tor-data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 1Gi
 
 ---
-# Deployment 8: Tor-Only mode
+# StatefulSet 1: Tor-Only mode with hidden service
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: gethrelay-only-onion-1
   namespace: gethrelay
@@ -483,6 +686,7 @@ metadata:
     mode: only-onion
     instance: "8"
 spec:
+  serviceName: gethrelay-only-onion-1
   replicas: 1
   selector:
     matchLabels:
@@ -497,6 +701,13 @@ spec:
     spec:
       securityContext:
         fsGroup: 100
+      initContainers:
+      - name: fix-permissions
+        image: busybox
+        command: ['sh', '-c', 'chown -R 100:100 /var/lib/tor && chmod -R 700 /var/lib/tor']
+        volumeMounts:
+        - name: tor-data
+          mountPath: /var/lib/tor
       containers:
       - name: tor
         image: dockurr/tor:latest
@@ -505,6 +716,12 @@ spec:
           name: socks
         - containerPort: 9051
           name: control
+        volumeMounts:
+        - name: torrc
+          mountPath: /etc/tor/torrc
+          subPath: torrc
+        - name: tor-data
+          mountPath: /var/lib/tor
         resources:
           requests:
             cpu: 100m
@@ -521,6 +738,8 @@ spec:
         - --v5disc
         - --tor-proxy=127.0.0.1:9050
         - --only-onion
+        - --tor-enabled
+        - --tor-control=127.0.0.1:9051
         - --rpc.upstream=$(RPC_UPSTREAM)
         envFrom:
         - configMapRef:
@@ -536,11 +755,23 @@ spec:
           limits:
             cpu: 1000m
             memory: 1Gi
+      volumes:
+      - name: torrc
+        configMap:
+          name: torrc-with-hidden-service
+  volumeClaimTemplates:
+  - metadata:
+      name: tor-data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 1Gi
 
 ---
-# Deployment 9: Tor-Only mode
+# StatefulSet 2: Tor-Only mode with hidden service
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: gethrelay-only-onion-2
   namespace: gethrelay
@@ -549,6 +780,7 @@ metadata:
     mode: only-onion
     instance: "9"
 spec:
+  serviceName: gethrelay-only-onion-2
   replicas: 1
   selector:
     matchLabels:
@@ -563,6 +795,13 @@ spec:
     spec:
       securityContext:
         fsGroup: 100
+      initContainers:
+      - name: fix-permissions
+        image: busybox
+        command: ['sh', '-c', 'chown -R 100:100 /var/lib/tor && chmod -R 700 /var/lib/tor']
+        volumeMounts:
+        - name: tor-data
+          mountPath: /var/lib/tor
       containers:
       - name: tor
         image: dockurr/tor:latest
@@ -571,6 +810,12 @@ spec:
           name: socks
         - containerPort: 9051
           name: control
+        volumeMounts:
+        - name: torrc
+          mountPath: /etc/tor/torrc
+          subPath: torrc
+        - name: tor-data
+          mountPath: /var/lib/tor
         resources:
           requests:
             cpu: 100m
@@ -587,6 +832,8 @@ spec:
         - --v5disc
         - --tor-proxy=127.0.0.1:9050
         - --only-onion
+        - --tor-enabled
+        - --tor-control=127.0.0.1:9051
         - --rpc.upstream=$(RPC_UPSTREAM)
         envFrom:
         - configMapRef:
@@ -602,11 +849,23 @@ spec:
           limits:
             cpu: 1000m
             memory: 1Gi
+      volumes:
+      - name: torrc
+        configMap:
+          name: torrc-with-hidden-service
+  volumeClaimTemplates:
+  - metadata:
+      name: tor-data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 1Gi
 
 ---
-# Deployment 10: Tor-Only mode
+# StatefulSet 3: Tor-Only mode with hidden service
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: gethrelay-only-onion-3
   namespace: gethrelay
@@ -615,6 +874,7 @@ metadata:
     mode: only-onion
     instance: "10"
 spec:
+  serviceName: gethrelay-only-onion-3
   replicas: 1
   selector:
     matchLabels:
@@ -629,6 +889,13 @@ spec:
     spec:
       securityContext:
         fsGroup: 100
+      initContainers:
+      - name: fix-permissions
+        image: busybox
+        command: ['sh', '-c', 'chown -R 100:100 /var/lib/tor && chmod -R 700 /var/lib/tor']
+        volumeMounts:
+        - name: tor-data
+          mountPath: /var/lib/tor
       containers:
       - name: tor
         image: dockurr/tor:latest
@@ -637,6 +904,12 @@ spec:
           name: socks
         - containerPort: 9051
           name: control
+        volumeMounts:
+        - name: torrc
+          mountPath: /etc/tor/torrc
+          subPath: torrc
+        - name: tor-data
+          mountPath: /var/lib/tor
         resources:
           requests:
             cpu: 100m
@@ -653,6 +926,8 @@ spec:
         - --v5disc
         - --tor-proxy=127.0.0.1:9050
         - --only-onion
+        - --tor-enabled
+        - --tor-control=127.0.0.1:9051
         - --rpc.upstream=$(RPC_UPSTREAM)
         envFrom:
         - configMapRef:
@@ -668,3 +943,15 @@ spec:
           limits:
             cpu: 1000m
             memory: 1Gi
+      volumes:
+      - name: torrc
+        configMap:
+          name: torrc-with-hidden-service
+  volumeClaimTemplates:
+  - metadata:
+      name: tor-data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 1Gi

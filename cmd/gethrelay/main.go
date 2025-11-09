@@ -136,6 +136,20 @@ var (
 			Name:  "only-onion",
 			Usage: "Restrict to .onion addresses only (requires --tor-proxy)",
 		},
+		&cli.BoolFlag{
+			Name:  "tor-enabled",
+			Usage: "Enable Tor hidden service for P2P (requires Tor control port access)",
+		},
+		&cli.StringFlag{
+			Name:  "tor-control",
+			Usage: "Tor control port address (default: 127.0.0.1:9051)",
+			Value: "127.0.0.1:9051",
+		},
+		&cli.StringFlag{
+			Name:  "tor-cookie",
+			Usage: "Path to Tor control authentication cookie (default: /var/lib/tor/control_auth_cookie)",
+			Value: "/var/lib/tor/control_auth_cookie",
+		},
 	}
 
 	app = flags.NewApp("lightweight Ethereum P2P relay node")
@@ -279,6 +293,11 @@ func runRelay(ctx *cli.Context) error {
 			TorSOCKSProxy: ctx.String("tor-proxy"),
 			PreferTor:     ctx.Bool("prefer-tor"),
 			OnlyOnion:     ctx.Bool("only-onion"),
+		},
+		Tor: node.TorConfig{
+			Enabled:        ctx.Bool("tor-enabled"),
+			ControlAddress: ctx.String("tor-control"),
+			CookiePath:     ctx.String("tor-cookie"),
 		},
 		UserIdent: ctx.String("identity"),
 		// HTTP RPC will be set up manually via setupRPCProxy
