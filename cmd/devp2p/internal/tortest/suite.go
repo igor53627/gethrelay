@@ -19,9 +19,10 @@ package tortest
 import (
 	"context"
 	"crypto/rand"
-	"encoding/hex"
+	"encoding/base32"
 	"fmt"
 	"net"
+	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/crypto"
@@ -652,24 +653,30 @@ func (s *Suite) TestTorNoUsableAddresses(t *utesting.T) {
 // --- Helper Functions ---
 
 // generateValidOnion3 generates a syntactically valid Tor v3 .onion address.
+// Uses proper base32 encoding (RFC 4648) for the random bytes.
 func generateValidOnion3() string {
-	bytes := make([]byte, 35)
-	rand.Read(bytes)
+	// Tor v3 addresses are 56 base32 characters
+	// base32 encoding: 5 bits per character, so 56 chars = 280 bits = 35 bytes
+	// However, we need to generate exactly 56 chars without padding
+	// Solution: generate enough bytes and truncate encoded string to 56 chars
 
+	randomBytes := make([]byte, 40) // Slightly more to ensure 56+ chars
+	rand.Read(randomBytes)
+
+	// Use base32 with Tor's lowercase alphabet
 	base32Chars := "abcdefghijklmnopqrstuvwxyz234567"
-	result := make([]byte, 56)
+	encoder := base32.NewEncoding(base32Chars).WithPadding(base32.NoPadding)
 
-	hexStr := hex.EncodeToString(bytes)
-	for i := 0; i < 56; i++ {
-		if i < len(hexStr) {
-			idx := int(hexStr[i] % 32)
-			result[i] = base32Chars[idx]
-		} else {
-			result[i] = 'a'
-		}
+	// Encode and take exactly 56 characters
+	encoded := encoder.EncodeToString(randomBytes)
+	if len(encoded) > 56 {
+		encoded = encoded[:56]
+	} else if len(encoded) < 56 {
+		// Pad with 'a' if somehow too short
+		encoded = encoded + strings.Repeat("a", 56-len(encoded))
 	}
 
-	return string(result) + ".onion"
+	return strings.ToLower(encoded) + ".onion"
 }
 
 // createTestNodeWithOnion creates a test node with only .onion address.
