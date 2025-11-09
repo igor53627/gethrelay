@@ -33,6 +33,7 @@ data:
     # Cookie authentication
     CookieAuthentication 1
     CookieAuthFile /var/lib/tor/control_auth_cookie
+    CookieAuthFileGroupReadable 1
 
     # Data directory
     DataDirectory /var/lib/tor
@@ -328,7 +329,7 @@ spec:
       initContainers:
       - name: fix-permissions
         image: busybox
-        command: ['sh', '-c', 'chown -R 100:100 /var/lib/tor && chmod -R 700 /var/lib/tor']
+        command: ['sh', '-c', 'chown -R 100:100 /var/lib/tor && chmod -R 750 /var/lib/tor']
         volumeMounts:
         - name: tor-data
           mountPath: /var/lib/tor
@@ -372,6 +373,9 @@ spec:
         - containerPort: 30303
           name: p2p
           protocol: TCP
+        volumeMounts:
+        - name: tor-data
+          mountPath: /var/lib/tor
         resources:
           requests:
             cpu: 200m
@@ -383,14 +387,8 @@ spec:
       - name: torrc
         configMap:
           name: torrc-with-hidden-service
-  volumeClaimTemplates:
-  - metadata:
-      name: tor-data
-    spec:
-      accessModes: [ "ReadWriteOnce" ]
-      resources:
-        requests:
-          storage: 1Gi
+      - name: tor-data
+        emptyDir: {}
 
 ---
 # StatefulSet 2: Prefer Tor mode with hidden service
@@ -422,7 +420,7 @@ spec:
       initContainers:
       - name: fix-permissions
         image: busybox
-        command: ['sh', '-c', 'chown -R 100:100 /var/lib/tor && chmod -R 700 /var/lib/tor']
+        command: ['sh', '-c', 'chown -R 100:100 /var/lib/tor && chmod -R 750 /var/lib/tor']
         volumeMounts:
         - name: tor-data
           mountPath: /var/lib/tor
@@ -466,6 +464,9 @@ spec:
         - containerPort: 30303
           name: p2p
           protocol: TCP
+        volumeMounts:
+        - name: tor-data
+          mountPath: /var/lib/tor
         resources:
           requests:
             cpu: 200m
@@ -477,14 +478,8 @@ spec:
       - name: torrc
         configMap:
           name: torrc-with-hidden-service
-  volumeClaimTemplates:
-  - metadata:
-      name: tor-data
-    spec:
-      accessModes: [ "ReadWriteOnce" ]
-      resources:
-        requests:
-          storage: 1Gi
+      - name: tor-data
+        emptyDir: {}
 
 ---
 # StatefulSet 3: Prefer Tor mode with hidden service
@@ -516,7 +511,7 @@ spec:
       initContainers:
       - name: fix-permissions
         image: busybox
-        command: ['sh', '-c', 'chown -R 100:100 /var/lib/tor && chmod -R 700 /var/lib/tor']
+        command: ['sh', '-c', 'chown -R 100:100 /var/lib/tor && chmod -R 750 /var/lib/tor']
         volumeMounts:
         - name: tor-data
           mountPath: /var/lib/tor
@@ -560,6 +555,9 @@ spec:
         - containerPort: 30303
           name: p2p
           protocol: TCP
+        volumeMounts:
+        - name: tor-data
+          mountPath: /var/lib/tor
         resources:
           requests:
             cpu: 200m
@@ -571,14 +569,8 @@ spec:
       - name: torrc
         configMap:
           name: torrc-with-hidden-service
-  volumeClaimTemplates:
-  - metadata:
-      name: tor-data
-    spec:
-      accessModes: [ "ReadWriteOnce" ]
-      resources:
-        requests:
-          storage: 1Gi
+      - name: tor-data
+        emptyDir: {}
 
 ---
 # StatefulSet 4: Prefer Tor mode with hidden service
@@ -610,7 +602,7 @@ spec:
       initContainers:
       - name: fix-permissions
         image: busybox
-        command: ['sh', '-c', 'chown -R 100:100 /var/lib/tor && chmod -R 700 /var/lib/tor']
+        command: ['sh', '-c', 'chown -R 100:100 /var/lib/tor && chmod -R 750 /var/lib/tor']
         volumeMounts:
         - name: tor-data
           mountPath: /var/lib/tor
@@ -654,6 +646,9 @@ spec:
         - containerPort: 30303
           name: p2p
           protocol: TCP
+        volumeMounts:
+        - name: tor-data
+          mountPath: /var/lib/tor
         resources:
           requests:
             cpu: 200m
@@ -665,14 +660,8 @@ spec:
       - name: torrc
         configMap:
           name: torrc-with-hidden-service
-  volumeClaimTemplates:
-  - metadata:
-      name: tor-data
-    spec:
-      accessModes: [ "ReadWriteOnce" ]
-      resources:
-        requests:
-          storage: 1Gi
+      - name: tor-data
+        emptyDir: {}
 
 ---
 # StatefulSet 1: Tor-Only mode with hidden service
@@ -704,7 +693,7 @@ spec:
       initContainers:
       - name: fix-permissions
         image: busybox
-        command: ['sh', '-c', 'chown -R 100:100 /var/lib/tor && chmod -R 700 /var/lib/tor']
+        command: ['sh', '-c', 'chown -R 100:100 /var/lib/tor && chmod -R 750 /var/lib/tor']
         volumeMounts:
         - name: tor-data
           mountPath: /var/lib/tor
@@ -748,6 +737,9 @@ spec:
         - containerPort: 30303
           name: p2p
           protocol: TCP
+        volumeMounts:
+        - name: tor-data
+          mountPath: /var/lib/tor
         resources:
           requests:
             cpu: 200m
@@ -759,14 +751,8 @@ spec:
       - name: torrc
         configMap:
           name: torrc-with-hidden-service
-  volumeClaimTemplates:
-  - metadata:
-      name: tor-data
-    spec:
-      accessModes: [ "ReadWriteOnce" ]
-      resources:
-        requests:
-          storage: 1Gi
+      - name: tor-data
+        emptyDir: {}
 
 ---
 # StatefulSet 2: Tor-Only mode with hidden service
@@ -798,7 +784,7 @@ spec:
       initContainers:
       - name: fix-permissions
         image: busybox
-        command: ['sh', '-c', 'chown -R 100:100 /var/lib/tor && chmod -R 700 /var/lib/tor']
+        command: ['sh', '-c', 'chown -R 100:100 /var/lib/tor && chmod -R 750 /var/lib/tor']
         volumeMounts:
         - name: tor-data
           mountPath: /var/lib/tor
@@ -842,6 +828,9 @@ spec:
         - containerPort: 30303
           name: p2p
           protocol: TCP
+        volumeMounts:
+        - name: tor-data
+          mountPath: /var/lib/tor
         resources:
           requests:
             cpu: 200m
@@ -853,14 +842,8 @@ spec:
       - name: torrc
         configMap:
           name: torrc-with-hidden-service
-  volumeClaimTemplates:
-  - metadata:
-      name: tor-data
-    spec:
-      accessModes: [ "ReadWriteOnce" ]
-      resources:
-        requests:
-          storage: 1Gi
+      - name: tor-data
+        emptyDir: {}
 
 ---
 # StatefulSet 3: Tor-Only mode with hidden service
@@ -892,7 +875,7 @@ spec:
       initContainers:
       - name: fix-permissions
         image: busybox
-        command: ['sh', '-c', 'chown -R 100:100 /var/lib/tor && chmod -R 700 /var/lib/tor']
+        command: ['sh', '-c', 'chown -R 100:100 /var/lib/tor && chmod -R 750 /var/lib/tor']
         volumeMounts:
         - name: tor-data
           mountPath: /var/lib/tor
@@ -936,6 +919,9 @@ spec:
         - containerPort: 30303
           name: p2p
           protocol: TCP
+        volumeMounts:
+        - name: tor-data
+          mountPath: /var/lib/tor
         resources:
           requests:
             cpu: 200m
@@ -947,11 +933,5 @@ spec:
       - name: torrc
         configMap:
           name: torrc-with-hidden-service
-  volumeClaimTemplates:
-  - metadata:
-      name: tor-data
-    spec:
-      accessModes: [ "ReadWriteOnce" ]
-      resources:
-        requests:
-          storage: 1Gi
+      - name: tor-data
+        emptyDir: {}

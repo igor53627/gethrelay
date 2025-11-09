@@ -32,9 +32,10 @@ RUN apk add --no-cache \
 # Copy gethrelay binary from builder
 COPY --from=builder /gethrelay /usr/local/bin/gethrelay
 
-# Create non-root user for gethrelay
+# Create non-root user for gethrelay and add to tor group for cookie file access
 RUN addgroup -g 1000 gethrelay && \
     adduser -D -u 1000 -G gethrelay gethrelay && \
+    adduser gethrelay tor && \
     mkdir -p /home/gethrelay/.ethereum && \
     chown -R gethrelay:gethrelay /home/gethrelay
 
