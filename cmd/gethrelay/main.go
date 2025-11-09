@@ -300,7 +300,10 @@ func runRelay(ctx *cli.Context) error {
 			CookiePath:     ctx.String("tor-cookie"),
 		},
 		UserIdent: ctx.String("identity"),
-		// HTTP RPC will be set up manually via setupRPCProxy
+		// HTTP RPC will be set up manually via setupRPCProxy on port 8545
+		// Set HTTPHost so Tor validation knows an HTTP endpoint exists
+		HTTPHost: "127.0.0.1",
+		HTTPPort: 8545,
 	}
 	
 	// Set NAT
