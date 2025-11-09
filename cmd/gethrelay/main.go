@@ -53,6 +53,10 @@ var (
 			Name:  "bootnodes",
 			Usage: "Comma separated list of bootstrap nodes",
 		},
+		&cli.StringFlag{
+			Name:  "staticnodes",
+			Usage: "Comma separated list of static nodes (always maintained connections)",
+		},
 		&cli.IntFlag{
 			Name:  "port",
 			Usage: "Network listening port",
@@ -329,6 +333,12 @@ func runRelay(ctx *cli.Context) error {
 			urls = params.MainnetBootnodes
 		}
 		nodeConfig.P2P.BootstrapNodes = mustParseBootnodes(urls)
+	}
+
+	// Set static nodes
+	if ctx.IsSet("staticnodes") {
+		urls := splitAndTrim(ctx.String("staticnodes"))
+		nodeConfig.P2P.StaticNodes = mustParseBootnodes(urls)
 	}
 
 	stack, err := node.New(nodeConfig)
