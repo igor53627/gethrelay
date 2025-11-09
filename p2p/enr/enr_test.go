@@ -463,3 +463,82 @@ func TestOnion3InvalidFormats(t *testing.T) {
 		})
 	}
 }
+
+// TestOnion3StreamDecodeError tests RLP stream decode errors for Onion3.
+func TestOnion3StreamDecodeError(t *testing.T) {
+	// Test invalid RLP stream (not a string)
+	var onion Onion3
+	stream := rlp.NewStream(bytes.NewReader([]byte{0xC0}), 0) // List instead of string
+	err := onion.DecodeRLP(stream)
+	if err == nil {
+		t.Fatal("expected error decoding list as Onion3")
+	}
+}
+
+// TestOnion3InENRRecord tests Onion3 in actual ENR record operations.
+func TestOnion3InENRRecord(t *testing.T) {
+	validOnion := Onion3("abcdefghijklmnopqrstuvwxyz234567abcdefghijklmnopqrstuv22.onion")
+
+	// Test Set in record
+	var r Record
+	r.Set(validOnion)
+	require.NoError(t, signTest([]byte{5}, &r)) // Sign the record
+
+	// Test Load from record
+	var loaded Onion3
+	if err := r.Load(&loaded); err != nil {
+		t.Fatalf("failed to load Onion3 from record: %v", err)
+	}
+
+	if loaded != validOnion {
+		t.Errorf("loaded value mismatch: got %s, want %s", loaded, validOnion)
+	}
+
+	// Test roundtrip through RLP encoding
+	blob, err := rlp.EncodeToBytes(r)
+	if err != nil {
+		t.Fatalf("failed to encode record: %v", err)
+	}
+
+	var r2 Record
+	if err := rlp.DecodeBytes(blob, &r2); err != nil {
+		t.Fatalf("failed to decode record: %v", err)
+	}
+
+	var loaded2 Onion3
+	if err := r2.Load(&loaded2); err != nil {
+		t.Fatalf("failed to load Onion3 from decoded record: %v", err)
+	}
+
+	if loaded2 != validOnion {
+		t.Errorf("roundtrip value mismatch: got %s, want %s", loaded2, validOnion)
+	}
+}
+
+// TestOnion3WithOtherENREntries tests Onion3 alongside other ENR entries.
+func TestOnion3WithOtherENREntries(t *testing.T) {
+	var r Record
+	r.Set(Onion3("abcdefghijklmnopqrstuvwxyz234567abcdefghijklmnopqrstuv22.onion"))
+	r.Set(IPv4{192, 168, 1, 1})
+	r.Set(TCP(30303))
+	r.Set(UDP(30303))
+
+	// Verify all entries can be loaded
+	var onion Onion3
+	var ip IPv4
+	var tcp TCP
+	var udp UDP
+
+	if err := r.Load(&onion); err != nil {
+		t.Fatalf("failed to load Onion3: %v", err)
+	}
+	if err := r.Load(&ip); err != nil {
+		t.Fatalf("failed to load IPv4: %v", err)
+	}
+	if err := r.Load(&tcp); err != nil {
+		t.Fatalf("failed to load TCP: %v", err)
+	}
+	if err := r.Load(&udp); err != nil {
+		t.Fatalf("failed to load UDP: %v", err)
+	}
+}
