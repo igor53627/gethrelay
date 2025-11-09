@@ -8,6 +8,7 @@ on:
     paths:
       - 'Dockerfile.gethrelay'
       - 'cmd/gethrelay/**'
+      - 'node/**'
       - 'p2p/**'
       - 'go.mod'
       - 'go.sum'
