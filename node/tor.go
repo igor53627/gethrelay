@@ -36,8 +36,10 @@ func (n *Node) enableTorHiddenService() error {
 		return nil
 	}
 
+	// Skip RPC hidden service if no RPC endpoints are configured
+	// This allows P2P-only nodes to use Tor without requiring RPC endpoints
 	if n.config.HTTPHost == "" && n.config.WSHost == "" {
-		return errors.New("tor hidden service requires HTTP or WS endpoint")
+		return nil
 	}
 
 	controlAddr := cfg.ControlAddress
