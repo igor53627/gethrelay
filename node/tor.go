@@ -36,10 +36,6 @@ func (n *Node) enableTorHiddenService() error {
 		return nil
 	}
 
-	if n.config.HTTPHost == "" && n.config.WSHost == "" {
-		return errors.New("tor hidden service requires HTTP or WS endpoint")
-	}
-
 	controlAddr := cfg.ControlAddress
 	if controlAddr == "" {
 		controlAddr = DefaultTorControlAddress

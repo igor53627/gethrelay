@@ -325,13 +325,6 @@ spec:
     spec:
       securityContext:
         fsGroup: 100
-      initContainers:
-      - name: fix-permissions
-        image: busybox
-        command: ['sh', '-c', 'chown -R 100:100 /var/lib/tor && chmod -R 700 /var/lib/tor']
-        volumeMounts:
-        - name: tor-data
-          mountPath: /var/lib/tor
       containers:
       - name: tor
         image: dockurr/tor:latest
@@ -419,13 +412,6 @@ spec:
     spec:
       securityContext:
         fsGroup: 100
-      initContainers:
-      - name: fix-permissions
-        image: busybox
-        command: ['sh', '-c', 'chown -R 100:100 /var/lib/tor && chmod -R 700 /var/lib/tor']
-        volumeMounts:
-        - name: tor-data
-          mountPath: /var/lib/tor
       containers:
       - name: tor
         image: dockurr/tor:latest
@@ -513,13 +499,6 @@ spec:
     spec:
       securityContext:
         fsGroup: 100
-      initContainers:
-      - name: fix-permissions
-        image: busybox
-        command: ['sh', '-c', 'chown -R 100:100 /var/lib/tor && chmod -R 700 /var/lib/tor']
-        volumeMounts:
-        - name: tor-data
-          mountPath: /var/lib/tor
       containers:
       - name: tor
         image: dockurr/tor:latest
@@ -607,13 +586,6 @@ spec:
     spec:
       securityContext:
         fsGroup: 100
-      initContainers:
-      - name: fix-permissions
-        image: busybox
-        command: ['sh', '-c', 'chown -R 100:100 /var/lib/tor && chmod -R 700 /var/lib/tor']
-        volumeMounts:
-        - name: tor-data
-          mountPath: /var/lib/tor
       containers:
       - name: tor
         image: dockurr/tor:latest
@@ -701,13 +673,6 @@ spec:
     spec:
       securityContext:
         fsGroup: 100
-      initContainers:
-      - name: fix-permissions
-        image: busybox
-        command: ['sh', '-c', 'chown -R 100:100 /var/lib/tor && chmod -R 700 /var/lib/tor']
-        volumeMounts:
-        - name: tor-data
-          mountPath: /var/lib/tor
       containers:
       - name: tor
         image: dockurr/tor:latest
@@ -795,13 +760,6 @@ spec:
     spec:
       securityContext:
         fsGroup: 100
-      initContainers:
-      - name: fix-permissions
-        image: busybox
-        command: ['sh', '-c', 'chown -R 100:100 /var/lib/tor && chmod -R 700 /var/lib/tor']
-        volumeMounts:
-        - name: tor-data
-          mountPath: /var/lib/tor
       containers:
       - name: tor
         image: dockurr/tor:latest
@@ -889,13 +847,6 @@ spec:
     spec:
       securityContext:
         fsGroup: 100
-      initContainers:
-      - name: fix-permissions
-        image: busybox
-        command: ['sh', '-c', 'chown -R 100:100 /var/lib/tor && chmod -R 700 /var/lib/tor']
-        volumeMounts:
-        - name: tor-data
-          mountPath: /var/lib/tor
       containers:
       - name: tor
         image: dockurr/tor:latest
