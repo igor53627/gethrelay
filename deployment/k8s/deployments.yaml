@@ -36,17 +36,16 @@ spec:
         instance: default-1
         mode: default
     spec:
+      securityContext:
+        fsGroup: 100
       containers:
       - name: tor
-        image: alpine/tor:latest
+        image: dockurr/tor:latest
         ports:
         - containerPort: 9050
           name: socks
         - containerPort: 9051
           name: control
-        volumeMounts:
-        - name: tor-data
-          mountPath: /var/lib/tor
         resources:
           requests:
             cpu: 100m
@@ -77,9 +76,6 @@ spec:
           limits:
             cpu: 1000m
             memory: 1Gi
-      volumes:
-      - name: tor-data
-        emptyDir: {}
 
 ---
 # Deployment 2: Default mode (no Tor preference)
@@ -105,17 +101,16 @@ spec:
         instance: default-2
         mode: default
     spec:
+      securityContext:
+        fsGroup: 100
       containers:
       - name: tor
-        image: alpine/tor:latest
+        image: dockurr/tor:latest
         ports:
         - containerPort: 9050
           name: socks
         - containerPort: 9051
           name: control
-        volumeMounts:
-        - name: tor-data
-          mountPath: /var/lib/tor
         resources:
           requests:
             cpu: 100m
@@ -146,9 +141,6 @@ spec:
           limits:
             cpu: 1000m
             memory: 1Gi
-      volumes:
-      - name: tor-data
-        emptyDir: {}
 
 ---
 # Deployment 3: Default mode (no Tor preference)
@@ -174,17 +166,16 @@ spec:
         instance: default-3
         mode: default
     spec:
+      securityContext:
+        fsGroup: 100
       containers:
       - name: tor
-        image: alpine/tor:latest
+        image: dockurr/tor:latest
         ports:
         - containerPort: 9050
           name: socks
         - containerPort: 9051
           name: control
-        volumeMounts:
-        - name: tor-data
-          mountPath: /var/lib/tor
         resources:
           requests:
             cpu: 100m
@@ -215,9 +206,6 @@ spec:
           limits:
             cpu: 1000m
             memory: 1Gi
-      volumes:
-      - name: tor-data
-        emptyDir: {}
 
 ---
 # Deployment 4: Prefer Tor mode
@@ -243,17 +231,16 @@ spec:
         instance: prefer-tor-1
         mode: prefer-tor
     spec:
+      securityContext:
+        fsGroup: 100
       containers:
       - name: tor
-        image: alpine/tor:latest
+        image: dockurr/tor:latest
         ports:
         - containerPort: 9050
           name: socks
         - containerPort: 9051
           name: control
-        volumeMounts:
-        - name: tor-data
-          mountPath: /var/lib/tor
         resources:
           requests:
             cpu: 100m
@@ -285,9 +272,6 @@ spec:
           limits:
             cpu: 1000m
             memory: 1Gi
-      volumes:
-      - name: tor-data
-        emptyDir: {}
 
 ---
 # Deployment 5: Prefer Tor mode
@@ -313,17 +297,16 @@ spec:
         instance: prefer-tor-2
         mode: prefer-tor
     spec:
+      securityContext:
+        fsGroup: 100
       containers:
       - name: tor
-        image: alpine/tor:latest
+        image: dockurr/tor:latest
         ports:
         - containerPort: 9050
           name: socks
         - containerPort: 9051
           name: control
-        volumeMounts:
-        - name: tor-data
-          mountPath: /var/lib/tor
         resources:
           requests:
             cpu: 100m
@@ -355,9 +338,6 @@ spec:
           limits:
             cpu: 1000m
             memory: 1Gi
-      volumes:
-      - name: tor-data
-        emptyDir: {}
 
 ---
 # Deployment 6: Prefer Tor mode
@@ -383,17 +363,16 @@ spec:
         instance: prefer-tor-3
         mode: prefer-tor
     spec:
+      securityContext:
+        fsGroup: 100
       containers:
       - name: tor
-        image: alpine/tor:latest
+        image: dockurr/tor:latest
         ports:
         - containerPort: 9050
           name: socks
         - containerPort: 9051
           name: control
-        volumeMounts:
-        - name: tor-data
-          mountPath: /var/lib/tor
         resources:
           requests:
             cpu: 100m
@@ -425,9 +404,6 @@ spec:
           limits:
             cpu: 1000m
             memory: 1Gi
-      volumes:
-      - name: tor-data
-        emptyDir: {}
 
 ---
 # Deployment 7: Prefer Tor mode
@@ -453,17 +429,16 @@ spec:
         instance: prefer-tor-4
         mode: prefer-tor
     spec:
+      securityContext:
+        fsGroup: 100
       containers:
       - name: tor
-        image: alpine/tor:latest
+        image: dockurr/tor:latest
         ports:
         - containerPort: 9050
           name: socks
         - containerPort: 9051
           name: control
-        volumeMounts:
-        - name: tor-data
-          mountPath: /var/lib/tor
         resources:
           requests:
             cpu: 100m
@@ -495,9 +470,6 @@ spec:
           limits:
             cpu: 1000m
             memory: 1Gi
-      volumes:
-      - name: tor-data
-        emptyDir: {}
 
 ---
 # Deployment 8: Tor-Only mode
@@ -523,17 +495,16 @@ spec:
         instance: only-onion-1
         mode: only-onion
     spec:
+      securityContext:
+        fsGroup: 100
       containers:
       - name: tor
-        image: alpine/tor:latest
+        image: dockurr/tor:latest
         ports:
         - containerPort: 9050
           name: socks
         - containerPort: 9051
           name: control
-        volumeMounts:
-        - name: tor-data
-          mountPath: /var/lib/tor
         resources:
           requests:
             cpu: 100m
@@ -565,9 +536,6 @@ spec:
           limits:
             cpu: 1000m
             memory: 1Gi
-      volumes:
-      - name: tor-data
-        emptyDir: {}
 
 ---
 # Deployment 9: Tor-Only mode
@@ -593,17 +561,16 @@ spec:
         instance: only-onion-2
         mode: only-onion
     spec:
+      securityContext:
+        fsGroup: 100
       containers:
       - name: tor
-        image: alpine/tor:latest
+        image: dockurr/tor:latest
         ports:
         - containerPort: 9050
           name: socks
         - containerPort: 9051
           name: control
-        volumeMounts:
-        - name: tor-data
-          mountPath: /var/lib/tor
         resources:
           requests:
             cpu: 100m
@@ -635,9 +602,6 @@ spec:
           limits:
             cpu: 1000m
             memory: 1Gi
-      volumes:
-      - name: tor-data
-        emptyDir: {}
 
 ---
 # Deployment 10: Tor-Only mode
@@ -663,17 +627,16 @@ spec:
         instance: only-onion-3
         mode: only-onion
     spec:
+      securityContext:
+        fsGroup: 100
       containers:
       - name: tor
-        image: alpine/tor:latest
+        image: dockurr/tor:latest
         ports:
         - containerPort: 9050
           name: socks
         - containerPort: 9051
           name: control
-        volumeMounts:
-        - name: tor-data
-          mountPath: /var/lib/tor
         resources:
           requests:
             cpu: 100m
@@ -705,6 +668,3 @@ spec:
           limits:
             cpu: 1000m
             memory: 1Gi
-      volumes:
-      - name: tor-data
-        emptyDir: {}
