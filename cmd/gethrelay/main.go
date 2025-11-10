@@ -404,6 +404,13 @@ func mustParseBootnodes(urls []string) []*enode.Node {
 				log.Error("Bootstrap URL invalid", "enode", url, "err", err)
 				continue
 			}
+			// Debug: Check if parsed node has Onion3 ENR entry
+			var onion enr.Onion3
+			if node.Load(&onion) == nil && onion != "" {
+				log.Info("mustParseBootnodes: Parsed node has Onion3", "peer", node.ID(), "onion", string(onion), "url", url)
+			} else {
+				log.Info("mustParseBootnodes: Parsed node lacks Onion3", "peer", node.ID(), "url", url)
+			}
 			nodes = append(nodes, node)
 		}
 	}
