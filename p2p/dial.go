@@ -617,8 +617,12 @@ func (t *dialTask) dial(d *dialScheduler, dest *enode.Node) error {
 	dialMeter.Mark(1)
 
 	// Check if this is a Tor (.onion) connection
+	// Check both the enr.Onion3 field (for .onion-only peers) and the TCP endpoint
+	var onion enr.Onion3
+	hasOnion := dest.Load(&onion) == nil && onion != ""
 	addr, _ := dest.TCPEndpoint()
-	isTor := IsOnionAddress(addr.String())
+	isTor := hasOnion || IsOnionAddress(addr.String())
+
 	if isTor {
 		torDialAttempts.Inc(1)
 	}
