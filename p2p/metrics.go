@@ -145,6 +145,7 @@ func markServeError(err error) {
 // inbound and outbound network traffic.
 type meteredConn struct {
 	net.Conn
+	isTor bool // Track if this is a Tor (.onion) connection
 }
 
 // newMeteredConn creates a new metered connection, bumps the ingress or egress
@@ -154,7 +155,9 @@ func newMeteredConn(conn net.Conn) net.Conn {
 	if !metrics.Enabled() {
 		return conn
 	}
-	return &meteredConn{Conn: conn}
+	// Check if this is a Tor connection by examining the remote address
+	isTor := IsOnionAddress(conn.RemoteAddr().String())
+	return &meteredConn{Conn: conn, isTor: isTor}
 }
 
 // Read delegates a network read to the underlying connection, bumping the common
@@ -162,6 +165,14 @@ func newMeteredConn(conn net.Conn) net.Conn {
 func (c *meteredConn) Read(b []byte) (n int, err error) {
 	n, err = c.Conn.Read(b)
 	ingressTrafficMeter.Mark(int64(n))
+
+	// Track Tor vs clearnet ingress traffic
+	if c.isTor {
+		trafficTorIngress.Inc(int64(n))
+	} else {
+		trafficClearnetIngress.Inc(int64(n))
+	}
+
 	return n, err
 }
 
@@ -170,5 +181,13 @@ func (c *meteredConn) Read(b []byte) (n int, err error) {
 func (c *meteredConn) Write(b []byte) (n int, err error) {
 	n, err = c.Conn.Write(b)
 	egressTrafficMeter.Mark(int64(n))
+
+	// Track Tor vs clearnet egress traffic
+	if c.isTor {
+		trafficTorEgress.Inc(int64(n))
+	} else {
+		trafficClearnetEgress.Inc(int64(n))
+	}
+
 	return n, err
 }

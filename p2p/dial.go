@@ -615,13 +615,26 @@ func (t *dialTask) resolve(d *dialScheduler) bool {
 // dial performs the actual connection attempt.
 func (t *dialTask) dial(d *dialScheduler, dest *enode.Node) error {
 	dialMeter.Mark(1)
+
+	// Check if this is a Tor (.onion) connection
+	addr, _ := dest.TCPEndpoint()
+	isTor := IsOnionAddress(addr.String())
+	if isTor {
+		torDialAttempts.Inc(1)
+	}
+
 	fd, err := d.dialer.Dial(d.ctx, dest)
 	if err != nil {
-		addr, _ := dest.TCPEndpoint()
 		d.log.Trace("Dial error", "id", dest.ID(), "addr", addr, "conn", t.flags, "err", cleanupDialErr(err))
 		dialConnectionError.Mark(1)
 		return &dialError{err}
 	}
+
+	// Mark successful Tor dial
+	if isTor {
+		torDialSuccesses.Inc(1)
+	}
+
 	return d.setupFunc(newMeteredConn(fd), t.flags, dest)
 }
 

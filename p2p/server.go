@@ -662,12 +662,29 @@ func (srv *Server) run() {
 		trusted[n.ID()] = true
 	}
 
+	// Start ticker for periodic Tor peer count updates
+	peerCountTicker := time.NewTicker(30 * time.Second)
+	defer peerCountTicker.Stop()
+
 running:
 	for {
 		select {
 		case <-srv.quit:
 			// The server was stopped. Run the cleanup logic.
 			break running
+
+		case <-peerCountTicker.C:
+			// Periodically update Tor vs clearnet peer counts
+			var torPeers, clearnetPeers int64
+			for _, p := range peers {
+				if IsOnionAddress(p.RemoteAddr().String()) {
+					torPeers++
+				} else {
+					clearnetPeers++
+				}
+			}
+			peersByNetworkTor.Update(torPeers)
+			peersByNetworkClearnet.Update(clearnetPeers)
 
 		case n := <-srv.addtrusted:
 			// This channel is used by AddTrustedPeer to add a node
