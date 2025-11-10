@@ -128,7 +128,7 @@ spec:
             cpu: 500m
             memory: 512Mi
       - name: gethrelay
-        image: ghcr.io/igor53627/gethrelay:latest
+        image: ghcr.io/igor53627/gethrelay:feature-monitoring-prometheus-grafana-56c6e7d
         args:
         - --chain=$(CHAIN)
         - --maxpeers=$(MAX_PEERS)
@@ -207,7 +207,7 @@ spec:
             cpu: 500m
             memory: 512Mi
       - name: gethrelay
-        image: ghcr.io/igor53627/gethrelay:latest
+        image: ghcr.io/igor53627/gethrelay:feature-monitoring-prometheus-grafana-56c6e7d
         args:
         - --chain=$(CHAIN)
         - --maxpeers=$(MAX_PEERS)
@@ -286,7 +286,7 @@ spec:
             cpu: 500m
             memory: 512Mi
       - name: gethrelay
-        image: ghcr.io/igor53627/gethrelay:latest
+        image: ghcr.io/igor53627/gethrelay:feature-monitoring-prometheus-grafana-56c6e7d
         args:
         - --chain=$(CHAIN)
         - --maxpeers=$(MAX_PEERS)
@@ -375,7 +375,7 @@ spec:
             cpu: 500m
             memory: 512Mi
       - name: gethrelay
-        image: ghcr.io/igor53627/gethrelay:latest
+        image: ghcr.io/igor53627/gethrelay:feature-monitoring-prometheus-grafana-56c6e7d
         args:
         - --chain=$(CHAIN)
         - --maxpeers=$(MAX_PEERS)
@@ -472,7 +472,7 @@ spec:
             cpu: 500m
             memory: 512Mi
       - name: gethrelay
-        image: ghcr.io/igor53627/gethrelay:latest
+        image: ghcr.io/igor53627/gethrelay:feature-monitoring-prometheus-grafana-56c6e7d
         args:
         - --chain=$(CHAIN)
         - --maxpeers=$(MAX_PEERS)
@@ -569,7 +569,7 @@ spec:
             cpu: 500m
             memory: 512Mi
       - name: gethrelay
-        image: ghcr.io/igor53627/gethrelay:latest
+        image: ghcr.io/igor53627/gethrelay:feature-monitoring-prometheus-grafana-56c6e7d
         args:
         - --chain=$(CHAIN)
         - --maxpeers=$(MAX_PEERS)
@@ -666,7 +666,7 @@ spec:
             cpu: 500m
             memory: 512Mi
       - name: gethrelay
-        image: ghcr.io/igor53627/gethrelay:latest
+        image: ghcr.io/igor53627/gethrelay:feature-monitoring-prometheus-grafana-56c6e7d
         args:
         - --chain=$(CHAIN)
         - --maxpeers=$(MAX_PEERS)
@@ -763,7 +763,7 @@ spec:
             cpu: 500m
             memory: 512Mi
       - name: gethrelay
-        image: ghcr.io/igor53627/gethrelay:latest
+        image: ghcr.io/igor53627/gethrelay:feature-monitoring-prometheus-grafana-56c6e7d
         args:
         - --chain=$(CHAIN)
         - --maxpeers=$(MAX_PEERS)
@@ -861,7 +861,7 @@ spec:
             cpu: 500m
             memory: 512Mi
       - name: gethrelay
-        image: ghcr.io/igor53627/gethrelay:latest
+        image: ghcr.io/igor53627/gethrelay:feature-monitoring-prometheus-grafana-56c6e7d
         args:
         - --chain=$(CHAIN)
         - --maxpeers=$(MAX_PEERS)
@@ -959,7 +959,7 @@ spec:
             cpu: 500m
             memory: 512Mi
       - name: gethrelay
-        image: ghcr.io/igor53627/gethrelay:latest
+        image: ghcr.io/igor53627/gethrelay:feature-monitoring-prometheus-grafana-56c6e7d
         args:
         - --chain=$(CHAIN)
         - --maxpeers=$(MAX_PEERS)
