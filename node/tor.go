@@ -305,11 +305,15 @@ func (n *Node) enableP2PTorHiddenService(localNode *enode.LocalNode, p2pPort int
 
 	// Check if a persistent hidden service already exists
 	// This happens when Tor is running in a container with pre-configured hidden service
+	// In Kubernetes/container environments, use absolute path to Tor's hidden service directory
 	hsDir := cfg.HiddenServiceDir
 	if hsDir == "" {
-		hsDir = DefaultTorServiceDir
+		// Try Kubernetes/container path first (absolute path where Tor creates files)
+		hsDir = "/var/lib/tor/hidden_service"
+	} else {
+		// For non-empty config, resolve relative paths
+		hsDir = n.resolveTorPath(hsDir)
 	}
-	hsDir = n.resolveTorPath(hsDir)
 	hostnamePath := filepath.Join(hsDir, torHostnameFilename)
 
 	var onionAddress string
