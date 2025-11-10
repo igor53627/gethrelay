@@ -106,11 +106,11 @@ func (t *TorDialer) Dial(ctx context.Context, dest *enode.Node) (net.Conn, error
 	_, hasClearnet := dest.TCPEndpoint()
 
 	// Debug logging
-	log.Debug("TorDialer.Dial called", "peer", dest.ID(), "hasOnion", hasOnion, "onion", string(onion), "hasClearnet", hasClearnet, "onlyOnion", t.onlyOnion, "preferTor", t.preferTor)
+	log.Info("TorDialer.Dial called", "peer", dest.ID(), "hasOnion", hasOnion, "onion", string(onion), "hasClearnet", hasClearnet, "onlyOnion", t.onlyOnion, "preferTor", t.preferTor)
 
 	// Only-onion mode: reject clearnet-only peers
 	if t.onlyOnion && !hasOnion {
-		log.Debug("TorDialer rejecting clearnet-only peer in only-onion mode", "peer", dest.ID())
+		log.Info("TorDialer rejecting clearnet-only peer in only-onion mode", "peer", dest.ID())
 		return nil, fmt.Errorf("only-onion mode: peer %s has no .onion address", dest.ID())
 	}
 
@@ -118,23 +118,23 @@ func (t *TorDialer) Dial(ctx context.Context, dest *enode.Node) (net.Conn, error
 	useTor := hasOnion && (t.preferTor || !hasClearnet)
 
 	if useTor {
-		log.Debug("TorDialer attempting Tor connection", "peer", dest.ID(), "onion", string(onion))
+		log.Info("TorDialer attempting Tor connection", "peer", dest.ID(), "onion", string(onion))
 		// Attempt connection via Tor
 		conn, err := t.dialViaTor(ctx, dest, string(onion))
 		if err != nil {
-			log.Debug("TorDialer Tor connection failed", "peer", dest.ID(), "error", err)
+			log.Info("TorDialer Tor connection failed", "peer", dest.ID(), "error", err)
 			// In only-onion mode, don't fallback to clearnet
 			if t.onlyOnion {
 				return nil, fmt.Errorf("failed to connect via Tor in only-onion mode: %w", err)
 			}
 			// Fallback to clearnet if available
 			if hasClearnet {
-				log.Debug("TorDialer falling back to clearnet", "peer", dest.ID())
+				log.Info("TorDialer falling back to clearnet", "peer", dest.ID())
 				return t.clearnet.Dial(ctx, dest)
 			}
 			return nil, fmt.Errorf("Tor connection failed and no clearnet fallback available: %w", err)
 		}
-		log.Debug("TorDialer Tor connection successful", "peer", dest.ID())
+		log.Info("TorDialer Tor connection successful", "peer", dest.ID())
 		return conn, nil
 	}
 
@@ -183,13 +183,13 @@ func (t *TorDialer) dialViaTor(ctx context.Context, dest *enode.Node, onionAddr 
 
 	// Dial through SOCKS5 proxy
 	target := fmt.Sprintf("%s:%d", onionAddr, tcpPort)
-	log.Debug("TorDialer dialing via SOCKS5", "target", target, "socksAddr", t.socksAddr)
+	log.Info("TorDialer dialing via SOCKS5", "target", target, "socksAddr", t.socksAddr)
 	conn, err := socksDialer.Dial("tcp", target)
 	if err != nil {
-		log.Debug("TorDialer SOCKS5 dial failed", "target", target, "error", err)
+		log.Info("TorDialer SOCKS5 dial failed", "target", target, "error", err)
 		return nil, fmt.Errorf("SOCKS5 dial to %s failed: %w", target, err)
 	}
-	log.Debug("TorDialer SOCKS5 dial successful", "target", target)
+	log.Info("TorDialer SOCKS5 dial successful", "target", target)
 
 	return conn, nil
 }
