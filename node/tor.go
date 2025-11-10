@@ -303,48 +303,71 @@ func (n *Node) enableP2PTorHiddenService(localNode *enode.LocalNode, p2pPort int
 		return fmt.Errorf("invalid P2P port: %d", p2pPort)
 	}
 
-	// Use default control address if not configured
-	controlAddr := cfg.ControlAddress
-	if controlAddr == "" {
-		controlAddr = DefaultTorControlAddress
+	// Check if a persistent hidden service already exists
+	// This happens when Tor is running in a container with pre-configured hidden service
+	hsDir := cfg.HiddenServiceDir
+	if hsDir == "" {
+		hsDir = DefaultTorServiceDir
 	}
+	hsDir = n.resolveTorPath(hsDir)
+	hostnamePath := filepath.Join(hsDir, torHostnameFilename)
 
-	// Connect to Tor control port
-	controller, err := dialTorController(controlAddr)
-	if err != nil {
-		return fmt.Errorf("failed to connect to Tor controller: %w", err)
-	}
-	defer controller.Close()
+	var onionAddress string
+	// Try to read existing .onion address from persistent hidden service
+	if data, err := os.ReadFile(hostnamePath); err == nil {
+		onionAddress = strings.TrimSpace(string(data))
+		n.log.Info("Using existing P2P Tor hidden service", "onion", onionAddress, "port", p2pPort, "source", "persistent")
+	} else if !os.IsNotExist(err) {
+		// File exists but couldn't read it - this is an error
+		return fmt.Errorf("failed to read Tor hostname file: %w", err)
+	} else {
+		// No persistent hidden service found, create ephemeral one via control port
+		n.log.Info("No persistent hidden service found, creating ephemeral service")
 
-	// Authenticate with Tor
-	if err := controller.protocolInfo(); err != nil {
-		return fmt.Errorf("tor protocol info failed: %w", err)
-	}
+		// Use default control address if not configured
+		controlAddr := cfg.ControlAddress
+		if controlAddr == "" {
+			controlAddr = DefaultTorControlAddress
+		}
 
-	cookiePath := cfg.CookiePath
-	if cookiePath == "" {
-		cookiePath = DefaultTorCookiePath
-	}
-	cookiePath = n.resolveTorPath(cookiePath)
-	cookie, err := os.ReadFile(cookiePath)
-	if err != nil {
-		return fmt.Errorf("failed to read Tor cookie: %w", err)
-	}
+		// Connect to Tor control port
+		controller, err := dialTorController(controlAddr)
+		if err != nil {
+			return fmt.Errorf("failed to connect to Tor controller: %w", err)
+		}
+		defer controller.Close()
 
-	if err := controller.authenticate(cookie); err != nil {
-		return fmt.Errorf("tor authentication failed: %w", err)
-	}
+		// Authenticate with Tor
+		if err := controller.protocolInfo(); err != nil {
+			return fmt.Errorf("tor protocol info failed: %w", err)
+		}
 
-	// Create ephemeral hidden service for P2P port
-	// Format: Port=<virtual_port>,<target_address>:<target_port>
-	mapping := fmt.Sprintf("Port=%d,127.0.0.1:%d", p2pPort, p2pPort)
-	serviceID, _, err := controller.addOnion("NEW:ED25519-V3", []string{mapping})
-	if err != nil {
-		return fmt.Errorf("failed to create P2P hidden service: %w", err)
-	}
+		cookiePath := cfg.CookiePath
+		if cookiePath == "" {
+			cookiePath = DefaultTorCookiePath
+		}
+		cookiePath = n.resolveTorPath(cookiePath)
+		cookie, err := os.ReadFile(cookiePath)
+		if err != nil {
+			return fmt.Errorf("failed to read Tor cookie: %w", err)
+		}
 
-	// Construct .onion address (56 base32 chars + ".onion")
-	onionAddress := serviceID + ".onion"
+		if err := controller.authenticate(cookie); err != nil {
+			return fmt.Errorf("tor authentication failed: %w", err)
+		}
+
+		// Create ephemeral hidden service for P2P port
+		// Format: Port=<virtual_port>,<target_address>:<target_port>
+		mapping := fmt.Sprintf("Port=%d,127.0.0.1:%d", p2pPort, p2pPort)
+		serviceID, _, err := controller.addOnion("NEW:ED25519-V3", []string{mapping})
+		if err != nil {
+			return fmt.Errorf("failed to create P2P hidden service: %w", err)
+		}
+
+		// Construct .onion address (56 base32 chars + ".onion")
+		onionAddress = serviceID + ".onion"
+		n.log.Info("P2P Tor hidden service ready", "onion", onionAddress, "port", p2pPort, "source", "ephemeral")
+	}
 
 	// Update local ENR with .onion address
 	// Create the onion entry - this validates the address during RLP encoding
@@ -356,7 +379,7 @@ func (n *Node) enableP2PTorHiddenService(localNode *enode.LocalNode, p2pPort int
 	// Set in ENR (validation passed)
 	localNode.Set(onion)
 
-	n.log.Info("P2P Tor hidden service ready", "onion", onionAddress, "port", p2pPort)
+	n.log.Info("P2P ENR updated with Tor address", "onion", onionAddress)
 	return nil
 }
 
