@@ -172,7 +172,7 @@ func (t *TorDialer) dialViaTor(ctx context.Context, dest *enode.Node, onionAddr 
 	if deadline, ok := ctx.Deadline(); ok {
 		baseDialer.Deadline = deadline
 	} else {
-		baseDialer.Timeout = 30 * time.Second
+		baseDialer.Timeout = 90 * time.Second // Increased for Tor hidden services
 	}
 
 	// Create SOCKS5 proxy dialer

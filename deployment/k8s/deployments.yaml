@@ -128,7 +128,7 @@ spec:
             cpu: 500m
             memory: 512Mi
       - name: gethrelay
-        image: ghcr.io/igor53627/gethrelay:feature-monitoring-prometheus-grafana-56c6e7d
+        image: ghcr.io/igor53627/gethrelay:feature-monitoring-prometheus-grafana-2385dd0
         args:
         - --chain=$(CHAIN)
         - --maxpeers=$(MAX_PEERS)
@@ -207,7 +207,7 @@ spec:
             cpu: 500m
             memory: 512Mi
       - name: gethrelay
-        image: ghcr.io/igor53627/gethrelay:feature-monitoring-prometheus-grafana-56c6e7d
+        image: ghcr.io/igor53627/gethrelay:feature-monitoring-prometheus-grafana-2385dd0
         args:
         - --chain=$(CHAIN)
         - --maxpeers=$(MAX_PEERS)
@@ -286,7 +286,7 @@ spec:
             cpu: 500m
             memory: 512Mi
       - name: gethrelay
-        image: ghcr.io/igor53627/gethrelay:feature-monitoring-prometheus-grafana-56c6e7d
+        image: ghcr.io/igor53627/gethrelay:feature-monitoring-prometheus-grafana-2385dd0
         args:
         - --chain=$(CHAIN)
         - --maxpeers=$(MAX_PEERS)
@@ -345,11 +345,12 @@ spec:
         mode: prefer-tor
     spec:
       securityContext:
-        fsGroup: 100
+        fsGroup: 101  # Match Tor's GID instead of 100
+        fsGroupChangePolicy: "OnRootMismatch"
       initContainers:
       - name: fix-permissions
         image: busybox
-        command: ['sh', '-c', 'chown -R 100:101 /var/lib/tor && chmod -R 750 /var/lib/tor']
+        command: ['sh', '-c', 'chown -R 100:101 /var/lib/tor && chmod -R 700 /var/lib/tor']
         volumeMounts:
         - name: tor-data
           mountPath: /var/lib/tor
@@ -375,7 +376,11 @@ spec:
             cpu: 500m
             memory: 512Mi
       - name: gethrelay
-        image: ghcr.io/igor53627/gethrelay:feature-monitoring-prometheus-grafana-56c6e7d
+        image: ghcr.io/igor53627/gethrelay:feature-monitoring-prometheus-grafana-2385dd0
+        lifecycle:
+          postStart:
+            exec:
+              command: ["/bin/sh", "-c", "sleep 10 && chmod -R g+rX /var/lib/tor/hidden_service 2>/dev/null || true"]
         args:
         - --chain=$(CHAIN)
         - --maxpeers=$(MAX_PEERS)
@@ -413,8 +418,14 @@ spec:
       - name: torrc
         configMap:
           name: torrc-with-hidden-service
-      - name: tor-data
-        emptyDir: {}
+  volumeClaimTemplates:
+  - metadata:
+      name: tor-data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 1Gi
 
 ---
 # StatefulSet 2: Prefer Tor mode with hidden service
@@ -442,11 +453,12 @@ spec:
         mode: prefer-tor
     spec:
       securityContext:
-        fsGroup: 100
+        fsGroup: 101  # Match Tor's GID instead of 100
+        fsGroupChangePolicy: "OnRootMismatch"
       initContainers:
       - name: fix-permissions
         image: busybox
-        command: ['sh', '-c', 'chown -R 100:101 /var/lib/tor && chmod -R 750 /var/lib/tor']
+        command: ['sh', '-c', 'chown -R 100:101 /var/lib/tor && chmod -R 700 /var/lib/tor']
         volumeMounts:
         - name: tor-data
           mountPath: /var/lib/tor
@@ -472,7 +484,11 @@ spec:
             cpu: 500m
             memory: 512Mi
       - name: gethrelay
-        image: ghcr.io/igor53627/gethrelay:feature-monitoring-prometheus-grafana-56c6e7d
+        image: ghcr.io/igor53627/gethrelay:feature-monitoring-prometheus-grafana-2385dd0
+        lifecycle:
+          postStart:
+            exec:
+              command: ["/bin/sh", "-c", "sleep 10 && chmod -R g+rX /var/lib/tor/hidden_service 2>/dev/null || true"]
         args:
         - --chain=$(CHAIN)
         - --maxpeers=$(MAX_PEERS)
@@ -510,8 +526,14 @@ spec:
       - name: torrc
         configMap:
           name: torrc-with-hidden-service
-      - name: tor-data
-        emptyDir: {}
+  volumeClaimTemplates:
+  - metadata:
+      name: tor-data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 1Gi
 
 ---
 # StatefulSet 3: Prefer Tor mode with hidden service
@@ -539,11 +561,12 @@ spec:
         mode: prefer-tor
     spec:
       securityContext:
-        fsGroup: 100
+        fsGroup: 101  # Match Tor's GID instead of 100
+        fsGroupChangePolicy: "OnRootMismatch"
       initContainers:
       - name: fix-permissions
         image: busybox
-        command: ['sh', '-c', 'chown -R 100:101 /var/lib/tor && chmod -R 750 /var/lib/tor']
+        command: ['sh', '-c', 'chown -R 100:101 /var/lib/tor && chmod -R 700 /var/lib/tor']
         volumeMounts:
         - name: tor-data
           mountPath: /var/lib/tor
@@ -569,7 +592,11 @@ spec:
             cpu: 500m
             memory: 512Mi
       - name: gethrelay
-        image: ghcr.io/igor53627/gethrelay:feature-monitoring-prometheus-grafana-56c6e7d
+        image: ghcr.io/igor53627/gethrelay:feature-monitoring-prometheus-grafana-2385dd0
+        lifecycle:
+          postStart:
+            exec:
+              command: ["/bin/sh", "-c", "sleep 10 && chmod -R g+rX /var/lib/tor/hidden_service 2>/dev/null || true"]
         args:
         - --chain=$(CHAIN)
         - --maxpeers=$(MAX_PEERS)
@@ -607,8 +634,14 @@ spec:
       - name: torrc
         configMap:
           name: torrc-with-hidden-service
-      - name: tor-data
-        emptyDir: {}
+  volumeClaimTemplates:
+  - metadata:
+      name: tor-data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 1Gi
 
 ---
 # StatefulSet 4: Prefer Tor mode with hidden service
@@ -636,11 +669,12 @@ spec:
         mode: prefer-tor
     spec:
       securityContext:
-        fsGroup: 100
+        fsGroup: 101  # Match Tor's GID instead of 100
+        fsGroupChangePolicy: "OnRootMismatch"
       initContainers:
       - name: fix-permissions
         image: busybox
-        command: ['sh', '-c', 'chown -R 100:101 /var/lib/tor && chmod -R 750 /var/lib/tor']
+        command: ['sh', '-c', 'chown -R 100:101 /var/lib/tor && chmod -R 700 /var/lib/tor']
         volumeMounts:
         - name: tor-data
           mountPath: /var/lib/tor
@@ -666,7 +700,11 @@ spec:
             cpu: 500m
             memory: 512Mi
       - name: gethrelay
-        image: ghcr.io/igor53627/gethrelay:feature-monitoring-prometheus-grafana-56c6e7d
+        image: ghcr.io/igor53627/gethrelay:feature-monitoring-prometheus-grafana-2385dd0
+        lifecycle:
+          postStart:
+            exec:
+              command: ["/bin/sh", "-c", "sleep 10 && chmod -R g+rX /var/lib/tor/hidden_service 2>/dev/null || true"]
         args:
         - --chain=$(CHAIN)
         - --maxpeers=$(MAX_PEERS)
@@ -704,8 +742,14 @@ spec:
       - name: torrc
         configMap:
           name: torrc-with-hidden-service
-      - name: tor-data
-        emptyDir: {}
+  volumeClaimTemplates:
+  - metadata:
+      name: tor-data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 1Gi
 
 ---
 # StatefulSet 1: Tor-Only mode with hidden service
@@ -737,13 +781,17 @@ spec:
       initContainers:
       - name: fix-permissions
         image: busybox
-        command: ['sh', '-c', 'chown -R 100:101 /var/lib/tor && chmod -R 750 /var/lib/tor']
+        command: ['sh', '-c', 'chown -R 100:101 /var/lib/tor && chmod -R 700 /var/lib/tor']
         volumeMounts:
         - name: tor-data
           mountPath: /var/lib/tor
       containers:
       - name: tor
         image: dockurr/tor:latest
+        lifecycle:
+          postStart:
+            exec:
+              command: ["/bin/sh", "-c", "sleep 5 && chmod -R g+rX /var/lib/tor/hidden_service 2>/dev/null || true"]
         ports:
         - containerPort: 9050
           name: socks
@@ -763,7 +811,7 @@ spec:
             cpu: 500m
             memory: 512Mi
       - name: gethrelay
-        image: ghcr.io/igor53627/gethrelay:feature-monitoring-prometheus-grafana-56c6e7d
+        image: ghcr.io/igor53627/gethrelay:feature-monitoring-prometheus-grafana-2385dd0
         args:
         - --chain=$(CHAIN)
         - --maxpeers=$(MAX_PEERS)
@@ -777,7 +825,7 @@ spec:
         - --pprof
         - --pprof.addr=0.0.0.0
         - --pprof.port=6060
-        - --staticnodes=enode://50ff9a4548a07fa256989e5d64e9925dc86f7dcd8c59cdf87f820dabd5678d41910aaf94ddb630ec857f9f77b10b42c1b49f4a5ecccef99dcf28bc8671f5fb27@darfuqg4jxsyjib7mjoyg555bnumyxrlm3surzav2ztuy3cssjshmcad.onion:30303,enode://95f9b6e49b4a0aab08c1eaefb09ec973cbae045d95f708a9984689b11beb0d6808b15a25ff1678becefda271c55108bf089bca36cbed343cd75424368ae7e259@aotrm7ankfhfbc6eqik4trucszb2cq2sp35qlvb7ymnj6abn22shuqad.onion:30303,enode://cdd4665492e1b2ea7a2a6e4bdca9aa476df5d52fe14d954092aa0c8420deb9680a010c89d05324d085a645e4311d90e957d535282dda9cbf66caf13fc82c98ff@yaiq5ykw7wsiw4uotmpey57acgpgvyqiebu46jkmf2si6pno2d3jf3qd.onion:30303,enode://cb283d399446b7866fe29aadd39d07642952f78d5dd128dd64487ad15b9b2dc640db5b8dbe2091def609ee0af7bc8034cc44b7cde20cb59af9a1898254bc145c@culnlds77u3l72ndskb7ssxilood2xva3iecab4346mxftt3llz33iqd.onion:30303,enode://5f7223a4aa5f6199eaec0b1a5915528a1427475a36a755dea712aa08464382d37f2a9f9257f2ab7669476f1a852bf04cf6413e8a23834358b1ef8eeb7fe57071@aclfdr4zqoekesppuqjbttan3e45hzj5bbe4zseum5czvqhcpzt7j7yd.onion:30303,enode://cbe8c5ddc6a48e9595f19ece147bcfc26614dfee367a824c2bc12f611772c3fc8dff63a91720ac0db7788a5d0938a5ff56aa4825d89cfb737ad4c6e68882d1dc@rqq2z57echjpfa4rrcy3lt52sfodvrk6frojzpwdmtocb7i2vov2bwyd.onion:30303,enode://bed4aa284f614434ea8a330cd19afdcb41f1db7bbd44bb5345234b6a7bb77165a81ce74c9d0f7b1ddb5f7c110d1912ca710e2aeedbb79697e20b45913f71e9ec@ykw2rhmqtnu32rhwn5bcgqwebrhqu42ky2uzsqzbnsqko7sgbud7teqd.onion:30303
+        - --staticnodes=enode://30c2b21584369ce7770ed8bb9e59f2eff4b056e365152c9d8d842c44ac45e500b7e6b3cc517b7234b5ea69748dfaed62f4f42fbdd3d0498adefbbda0059cfc54@q5egdubfdzy3qetrgxbtrsbkfbsqolwfc7m23aawekrhe7bgvkjzrvyd.onion:30303,enode://776c2a0f15ebfc48f56a1937440766abe9b183cbf0cef7bb48f158a8e6754903187af22c192ec0b89905f0678814f8a03011028f70ea1fdbdc42f71c690bc447@sz5zwguedzqzu5sbydktwc4cbx46saleurvjhry5bi6sebmwb55arrad.onion:30303,enode://d7a3abd2b1d6ca9ddf67de59f9f5f135fb9483989dd93838e5a73d8c7850f4372607bacaa5194c1aaeea10b11cd145c81d89ea45067fd88093f77b0a6560c35a@4qv32supxht7khatwifyw5mtt4h3xuty46zr3qsurvzmhyniid2w5wid.onion:30303
         envFrom:
         - configMapRef:
             name: gethrelay-config
@@ -802,8 +850,14 @@ spec:
       - name: torrc
         configMap:
           name: torrc-with-hidden-service
-      - name: tor-data
-        emptyDir: {}
+  volumeClaimTemplates:
+  - metadata:
+      name: tor-data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 1Gi
 
 ---
 # StatefulSet 2: Tor-Only mode with hidden service
@@ -835,13 +889,17 @@ spec:
       initContainers:
       - name: fix-permissions
         image: busybox
-        command: ['sh', '-c', 'chown -R 100:101 /var/lib/tor && chmod -R 750 /var/lib/tor']
+        command: ['sh', '-c', 'chown -R 100:101 /var/lib/tor && chmod -R 700 /var/lib/tor']
         volumeMounts:
         - name: tor-data
           mountPath: /var/lib/tor
       containers:
       - name: tor
         image: dockurr/tor:latest
+        lifecycle:
+          postStart:
+            exec:
+              command: ["/bin/sh", "-c", "sleep 5 && chmod -R g+rX /var/lib/tor/hidden_service 2>/dev/null || true"]
         ports:
         - containerPort: 9050
           name: socks
@@ -861,7 +919,7 @@ spec:
             cpu: 500m
             memory: 512Mi
       - name: gethrelay
-        image: ghcr.io/igor53627/gethrelay:feature-monitoring-prometheus-grafana-56c6e7d
+        image: ghcr.io/igor53627/gethrelay:feature-monitoring-prometheus-grafana-2385dd0
         args:
         - --chain=$(CHAIN)
         - --maxpeers=$(MAX_PEERS)
@@ -875,7 +933,7 @@ spec:
         - --pprof
         - --pprof.addr=0.0.0.0
         - --pprof.port=6060
-        - --staticnodes=enode://50ff9a4548a07fa256989e5d64e9925dc86f7dcd8c59cdf87f820dabd5678d41910aaf94ddb630ec857f9f77b10b42c1b49f4a5ecccef99dcf28bc8671f5fb27@darfuqg4jxsyjib7mjoyg555bnumyxrlm3surzav2ztuy3cssjshmcad.onion:30303,enode://95f9b6e49b4a0aab08c1eaefb09ec973cbae045d95f708a9984689b11beb0d6808b15a25ff1678becefda271c55108bf089bca36cbed343cd75424368ae7e259@aotrm7ankfhfbc6eqik4trucszb2cq2sp35qlvb7ymnj6abn22shuqad.onion:30303,enode://cdd4665492e1b2ea7a2a6e4bdca9aa476df5d52fe14d954092aa0c8420deb9680a010c89d05324d085a645e4311d90e957d535282dda9cbf66caf13fc82c98ff@yaiq5ykw7wsiw4uotmpey57acgpgvyqiebu46jkmf2si6pno2d3jf3qd.onion:30303,enode://cb283d399446b7866fe29aadd39d07642952f78d5dd128dd64487ad15b9b2dc640db5b8dbe2091def609ee0af7bc8034cc44b7cde20cb59af9a1898254bc145c@culnlds77u3l72ndskb7ssxilood2xva3iecab4346mxftt3llz33iqd.onion:30303,enode://5f7223a4aa5f6199eaec0b1a5915528a1427475a36a755dea712aa08464382d37f2a9f9257f2ab7669476f1a852bf04cf6413e8a23834358b1ef8eeb7fe57071@aclfdr4zqoekesppuqjbttan3e45hzj5bbe4zseum5czvqhcpzt7j7yd.onion:30303,enode://cbe8c5ddc6a48e9595f19ece147bcfc26614dfee367a824c2bc12f611772c3fc8dff63a91720ac0db7788a5d0938a5ff56aa4825d89cfb737ad4c6e68882d1dc@rqq2z57echjpfa4rrcy3lt52sfodvrk6frojzpwdmtocb7i2vov2bwyd.onion:30303,enode://bed4aa284f614434ea8a330cd19afdcb41f1db7bbd44bb5345234b6a7bb77165a81ce74c9d0f7b1ddb5f7c110d1912ca710e2aeedbb79697e20b45913f71e9ec@ykw2rhmqtnu32rhwn5bcgqwebrhqu42ky2uzsqzbnsqko7sgbud7teqd.onion:30303
+        - --staticnodes=enode://30c2b21584369ce7770ed8bb9e59f2eff4b056e365152c9d8d842c44ac45e500b7e6b3cc517b7234b5ea69748dfaed62f4f42fbdd3d0498adefbbda0059cfc54@q5egdubfdzy3qetrgxbtrsbkfbsqolwfc7m23aawekrhe7bgvkjzrvyd.onion:30303,enode://776c2a0f15ebfc48f56a1937440766abe9b183cbf0cef7bb48f158a8e6754903187af22c192ec0b89905f0678814f8a03011028f70ea1fdbdc42f71c690bc447@sz5zwguedzqzu5sbydktwc4cbx46saleurvjhry5bi6sebmwb55arrad.onion:30303,enode://d7a3abd2b1d6ca9ddf67de59f9f5f135fb9483989dd93838e5a73d8c7850f4372607bacaa5194c1aaeea10b11cd145c81d89ea45067fd88093f77b0a6560c35a@4qv32supxht7khatwifyw5mtt4h3xuty46zr3qsurvzmhyniid2w5wid.onion:30303
         envFrom:
         - configMapRef:
             name: gethrelay-config
@@ -900,8 +958,14 @@ spec:
       - name: torrc
         configMap:
           name: torrc-with-hidden-service
-      - name: tor-data
-        emptyDir: {}
+  volumeClaimTemplates:
+  - metadata:
+      name: tor-data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 1Gi
 
 ---
 # StatefulSet 3: Tor-Only mode with hidden service
@@ -933,13 +997,17 @@ spec:
       initContainers:
       - name: fix-permissions
         image: busybox
-        command: ['sh', '-c', 'chown -R 100:101 /var/lib/tor && chmod -R 750 /var/lib/tor']
+        command: ['sh', '-c', 'chown -R 100:101 /var/lib/tor && chmod -R 700 /var/lib/tor']
         volumeMounts:
         - name: tor-data
           mountPath: /var/lib/tor
       containers:
       - name: tor
         image: dockurr/tor:latest
+        lifecycle:
+          postStart:
+            exec:
+              command: ["/bin/sh", "-c", "sleep 5 && chmod -R g+rX /var/lib/tor/hidden_service 2>/dev/null || true"]
         ports:
         - containerPort: 9050
           name: socks
@@ -959,7 +1027,7 @@ spec:
             cpu: 500m
             memory: 512Mi
       - name: gethrelay
-        image: ghcr.io/igor53627/gethrelay:feature-monitoring-prometheus-grafana-56c6e7d
+        image: ghcr.io/igor53627/gethrelay:feature-monitoring-prometheus-grafana-2385dd0
         args:
         - --chain=$(CHAIN)
         - --maxpeers=$(MAX_PEERS)
@@ -973,7 +1041,7 @@ spec:
         - --pprof
         - --pprof.addr=0.0.0.0
         - --pprof.port=6060
-        - --staticnodes=enode://50ff9a4548a07fa256989e5d64e9925dc86f7dcd8c59cdf87f820dabd5678d41910aaf94ddb630ec857f9f77b10b42c1b49f4a5ecccef99dcf28bc8671f5fb27@darfuqg4jxsyjib7mjoyg555bnumyxrlm3surzav2ztuy3cssjshmcad.onion:30303,enode://95f9b6e49b4a0aab08c1eaefb09ec973cbae045d95f708a9984689b11beb0d6808b15a25ff1678becefda271c55108bf089bca36cbed343cd75424368ae7e259@aotrm7ankfhfbc6eqik4trucszb2cq2sp35qlvb7ymnj6abn22shuqad.onion:30303,enode://cdd4665492e1b2ea7a2a6e4bdca9aa476df5d52fe14d954092aa0c8420deb9680a010c89d05324d085a645e4311d90e957d535282dda9cbf66caf13fc82c98ff@yaiq5ykw7wsiw4uotmpey57acgpgvyqiebu46jkmf2si6pno2d3jf3qd.onion:30303,enode://cb283d399446b7866fe29aadd39d07642952f78d5dd128dd64487ad15b9b2dc640db5b8dbe2091def609ee0af7bc8034cc44b7cde20cb59af9a1898254bc145c@culnlds77u3l72ndskb7ssxilood2xva3iecab4346mxftt3llz33iqd.onion:30303,enode://5f7223a4aa5f6199eaec0b1a5915528a1427475a36a755dea712aa08464382d37f2a9f9257f2ab7669476f1a852bf04cf6413e8a23834358b1ef8eeb7fe57071@aclfdr4zqoekesppuqjbttan3e45hzj5bbe4zseum5czvqhcpzt7j7yd.onion:30303,enode://cbe8c5ddc6a48e9595f19ece147bcfc26614dfee367a824c2bc12f611772c3fc8dff63a91720ac0db7788a5d0938a5ff56aa4825d89cfb737ad4c6e68882d1dc@rqq2z57echjpfa4rrcy3lt52sfodvrk6frojzpwdmtocb7i2vov2bwyd.onion:30303,enode://bed4aa284f614434ea8a330cd19afdcb41f1db7bbd44bb5345234b6a7bb77165a81ce74c9d0f7b1ddb5f7c110d1912ca710e2aeedbb79697e20b45913f71e9ec@ykw2rhmqtnu32rhwn5bcgqwebrhqu42ky2uzsqzbnsqko7sgbud7teqd.onion:30303
+        - --staticnodes=enode://30c2b21584369ce7770ed8bb9e59f2eff4b056e365152c9d8d842c44ac45e500b7e6b3cc517b7234b5ea69748dfaed62f4f42fbdd3d0498adefbbda0059cfc54@q5egdubfdzy3qetrgxbtrsbkfbsqolwfc7m23aawekrhe7bgvkjzrvyd.onion:30303,enode://776c2a0f15ebfc48f56a1937440766abe9b183cbf0cef7bb48f158a8e6754903187af22c192ec0b89905f0678814f8a03011028f70ea1fdbdc42f71c690bc447@sz5zwguedzqzu5sbydktwc4cbx46saleurvjhry5bi6sebmwb55arrad.onion:30303,enode://d7a3abd2b1d6ca9ddf67de59f9f5f135fb9483989dd93838e5a73d8c7850f4372607bacaa5194c1aaeea10b11cd145c81d89ea45067fd88093f77b0a6560c35a@4qv32supxht7khatwifyw5mtt4h3xuty46zr3qsurvzmhyniid2w5wid.onion:30303
         envFrom:
         - configMapRef:
             name: gethrelay-config
@@ -998,5 +1066,11 @@ spec:
       - name: torrc
         configMap:
           name: torrc-with-hidden-service
-      - name: tor-data
-        emptyDir: {}
+  volumeClaimTemplates:
+  - metadata:
+      name: tor-data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 1Gi
