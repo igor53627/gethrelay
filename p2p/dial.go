@@ -537,19 +537,25 @@ func (t *dialTask) dest() *enode.Node {
 
 func (t *dialTask) run(d *dialScheduler) {
 	if t.isStatic() {
-		// Resolve DNS.
-		if n := t.dest(); n.Hostname() != "" {
-			resolved, err := d.dnsResolveHostname(n)
-			if err != nil {
-				d.log.Warn("DNS lookup of static node failed", "id", n.ID(), "name", n.Hostname(), "err", err)
-			} else {
-				t.destPtr.Store(resolved)
+		// Check if this is a .onion node - skip DNS/DHT resolution for .onion addresses
+		var onion enr.Onion3
+		hasOnion := t.dest().Load(&onion) == nil && onion != ""
+
+		if !hasOnion {
+			// Resolve DNS for non-.onion nodes.
+			if n := t.dest(); n.Hostname() != "" {
+				resolved, err := d.dnsResolveHostname(n)
+				if err != nil {
+					d.log.Warn("DNS lookup of static node failed", "id", n.ID(), "name", n.Hostname(), "err", err)
+				} else {
+					t.destPtr.Store(resolved)
+				}
 			}
-		}
-		// Try resolving node ID through the DHT if there is no IP address.
-		if !t.dest().IPAddr().IsValid() {
-			if !t.resolve(d) {
-				return // DHT resolve failed, skip dial.
+			// Try resolving node ID through the DHT if there is no IP address.
+			if !t.dest().IPAddr().IsValid() {
+				if !t.resolve(d) {
+					return // DHT resolve failed, skip dial.
+				}
 			}
 		}
 	}
