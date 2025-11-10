@@ -136,12 +136,18 @@ spec:
         - --v5disc
         - --tor-proxy=127.0.0.1:9050
         - --rpc.upstream=$(RPC_UPSTREAM)
+        - --pprof
+        - --pprof.addr=0.0.0.0
+        - --pprof.port=6060
         envFrom:
         - configMapRef:
             name: gethrelay-config
         ports:
         - containerPort: 30303
           name: p2p
+          protocol: TCP
+        - containerPort: 6060
+          name: metrics
           protocol: TCP
         resources:
           requests:
@@ -209,12 +215,18 @@ spec:
         - --v5disc
         - --tor-proxy=127.0.0.1:9050
         - --rpc.upstream=$(RPC_UPSTREAM)
+        - --pprof
+        - --pprof.addr=0.0.0.0
+        - --pprof.port=6060
         envFrom:
         - configMapRef:
             name: gethrelay-config
         ports:
         - containerPort: 30303
           name: p2p
+          protocol: TCP
+        - containerPort: 6060
+          name: metrics
           protocol: TCP
         resources:
           requests:
@@ -282,12 +294,18 @@ spec:
         - --v5disc
         - --tor-proxy=127.0.0.1:9050
         - --rpc.upstream=$(RPC_UPSTREAM)
+        - --pprof
+        - --pprof.addr=0.0.0.0
+        - --pprof.port=6060
         envFrom:
         - configMapRef:
             name: gethrelay-config
         ports:
         - containerPort: 30303
           name: p2p
+          protocol: TCP
+        - containerPort: 6060
+          name: metrics
           protocol: TCP
         resources:
           requests:
@@ -368,12 +386,18 @@ spec:
         - --tor-enabled
         - --tor-control=127.0.0.1:9051
         - --rpc.upstream=$(RPC_UPSTREAM)
+        - --pprof
+        - --pprof.addr=0.0.0.0
+        - --pprof.port=6060
         envFrom:
         - configMapRef:
             name: gethrelay-config
         ports:
         - containerPort: 30303
           name: p2p
+          protocol: TCP
+        - containerPort: 6060
+          name: metrics
           protocol: TCP
         volumeMounts:
         - name: tor-data
@@ -459,12 +483,18 @@ spec:
         - --tor-enabled
         - --tor-control=127.0.0.1:9051
         - --rpc.upstream=$(RPC_UPSTREAM)
+        - --pprof
+        - --pprof.addr=0.0.0.0
+        - --pprof.port=6060
         envFrom:
         - configMapRef:
             name: gethrelay-config
         ports:
         - containerPort: 30303
           name: p2p
+          protocol: TCP
+        - containerPort: 6060
+          name: metrics
           protocol: TCP
         volumeMounts:
         - name: tor-data
@@ -550,12 +580,18 @@ spec:
         - --tor-enabled
         - --tor-control=127.0.0.1:9051
         - --rpc.upstream=$(RPC_UPSTREAM)
+        - --pprof
+        - --pprof.addr=0.0.0.0
+        - --pprof.port=6060
         envFrom:
         - configMapRef:
             name: gethrelay-config
         ports:
         - containerPort: 30303
           name: p2p
+          protocol: TCP
+        - containerPort: 6060
+          name: metrics
           protocol: TCP
         volumeMounts:
         - name: tor-data
@@ -641,12 +677,18 @@ spec:
         - --tor-enabled
         - --tor-control=127.0.0.1:9051
         - --rpc.upstream=$(RPC_UPSTREAM)
+        - --pprof
+        - --pprof.addr=0.0.0.0
+        - --pprof.port=6060
         envFrom:
         - configMapRef:
             name: gethrelay-config
         ports:
         - containerPort: 30303
           name: p2p
+          protocol: TCP
+        - containerPort: 6060
+          name: metrics
           protocol: TCP
         volumeMounts:
         - name: tor-data
@@ -732,6 +774,9 @@ spec:
         - --tor-enabled
         - --tor-control=127.0.0.1:9051
         - --rpc.upstream=$(RPC_UPSTREAM)
+        - --pprof
+        - --pprof.addr=0.0.0.0
+        - --pprof.port=6060
         - --staticnodes=enode://50ff9a4548a07fa256989e5d64e9925dc86f7dcd8c59cdf87f820dabd5678d41910aaf94ddb630ec857f9f77b10b42c1b49f4a5ecccef99dcf28bc8671f5fb27@darfuqg4jxsyjib7mjoyg555bnumyxrlm3surzav2ztuy3cssjshmcad.onion:30303,enode://95f9b6e49b4a0aab08c1eaefb09ec973cbae045d95f708a9984689b11beb0d6808b15a25ff1678becefda271c55108bf089bca36cbed343cd75424368ae7e259@aotrm7ankfhfbc6eqik4trucszb2cq2sp35qlvb7ymnj6abn22shuqad.onion:30303,enode://cdd4665492e1b2ea7a2a6e4bdca9aa476df5d52fe14d954092aa0c8420deb9680a010c89d05324d085a645e4311d90e957d535282dda9cbf66caf13fc82c98ff@yaiq5ykw7wsiw4uotmpey57acgpgvyqiebu46jkmf2si6pno2d3jf3qd.onion:30303,enode://cb283d399446b7866fe29aadd39d07642952f78d5dd128dd64487ad15b9b2dc640db5b8dbe2091def609ee0af7bc8034cc44b7cde20cb59af9a1898254bc145c@culnlds77u3l72ndskb7ssxilood2xva3iecab4346mxftt3llz33iqd.onion:30303,enode://5f7223a4aa5f6199eaec0b1a5915528a1427475a36a755dea712aa08464382d37f2a9f9257f2ab7669476f1a852bf04cf6413e8a23834358b1ef8eeb7fe57071@aclfdr4zqoekesppuqjbttan3e45hzj5bbe4zseum5czvqhcpzt7j7yd.onion:30303,enode://cbe8c5ddc6a48e9595f19ece147bcfc26614dfee367a824c2bc12f611772c3fc8dff63a91720ac0db7788a5d0938a5ff56aa4825d89cfb737ad4c6e68882d1dc@rqq2z57echjpfa4rrcy3lt52sfodvrk6frojzpwdmtocb7i2vov2bwyd.onion:30303,enode://bed4aa284f614434ea8a330cd19afdcb41f1db7bbd44bb5345234b6a7bb77165a81ce74c9d0f7b1ddb5f7c110d1912ca710e2aeedbb79697e20b45913f71e9ec@ykw2rhmqtnu32rhwn5bcgqwebrhqu42ky2uzsqzbnsqko7sgbud7teqd.onion:30303
         envFrom:
         - configMapRef:
@@ -739,6 +784,9 @@ spec:
         ports:
         - containerPort: 30303
           name: p2p
+          protocol: TCP
+        - containerPort: 6060
+          name: metrics
           protocol: TCP
         volumeMounts:
         - name: tor-data
@@ -824,6 +872,9 @@ spec:
         - --tor-enabled
         - --tor-control=127.0.0.1:9051
         - --rpc.upstream=$(RPC_UPSTREAM)
+        - --pprof
+        - --pprof.addr=0.0.0.0
+        - --pprof.port=6060
         - --staticnodes=enode://50ff9a4548a07fa256989e5d64e9925dc86f7dcd8c59cdf87f820dabd5678d41910aaf94ddb630ec857f9f77b10b42c1b49f4a5ecccef99dcf28bc8671f5fb27@darfuqg4jxsyjib7mjoyg555bnumyxrlm3surzav2ztuy3cssjshmcad.onion:30303,enode://95f9b6e49b4a0aab08c1eaefb09ec973cbae045d95f708a9984689b11beb0d6808b15a25ff1678becefda271c55108bf089bca36cbed343cd75424368ae7e259@aotrm7ankfhfbc6eqik4trucszb2cq2sp35qlvb7ymnj6abn22shuqad.onion:30303,enode://cdd4665492e1b2ea7a2a6e4bdca9aa476df5d52fe14d954092aa0c8420deb9680a010c89d05324d085a645e4311d90e957d535282dda9cbf66caf13fc82c98ff@yaiq5ykw7wsiw4uotmpey57acgpgvyqiebu46jkmf2si6pno2d3jf3qd.onion:30303,enode://cb283d399446b7866fe29aadd39d07642952f78d5dd128dd64487ad15b9b2dc640db5b8dbe2091def609ee0af7bc8034cc44b7cde20cb59af9a1898254bc145c@culnlds77u3l72ndskb7ssxilood2xva3iecab4346mxftt3llz33iqd.onion:30303,enode://5f7223a4aa5f6199eaec0b1a5915528a1427475a36a755dea712aa08464382d37f2a9f9257f2ab7669476f1a852bf04cf6413e8a23834358b1ef8eeb7fe57071@aclfdr4zqoekesppuqjbttan3e45hzj5bbe4zseum5czvqhcpzt7j7yd.onion:30303,enode://cbe8c5ddc6a48e9595f19ece147bcfc26614dfee367a824c2bc12f611772c3fc8dff63a91720ac0db7788a5d0938a5ff56aa4825d89cfb737ad4c6e68882d1dc@rqq2z57echjpfa4rrcy3lt52sfodvrk6frojzpwdmtocb7i2vov2bwyd.onion:30303,enode://bed4aa284f614434ea8a330cd19afdcb41f1db7bbd44bb5345234b6a7bb77165a81ce74c9d0f7b1ddb5f7c110d1912ca710e2aeedbb79697e20b45913f71e9ec@ykw2rhmqtnu32rhwn5bcgqwebrhqu42ky2uzsqzbnsqko7sgbud7teqd.onion:30303
         envFrom:
         - configMapRef:
@@ -831,6 +882,9 @@ spec:
         ports:
         - containerPort: 30303
           name: p2p
+          protocol: TCP
+        - containerPort: 6060
+          name: metrics
           protocol: TCP
         volumeMounts:
         - name: tor-data
@@ -916,6 +970,9 @@ spec:
         - --tor-enabled
         - --tor-control=127.0.0.1:9051
         - --rpc.upstream=$(RPC_UPSTREAM)
+        - --pprof
+        - --pprof.addr=0.0.0.0
+        - --pprof.port=6060
         - --staticnodes=enode://50ff9a4548a07fa256989e5d64e9925dc86f7dcd8c59cdf87f820dabd5678d41910aaf94ddb630ec857f9f77b10b42c1b49f4a5ecccef99dcf28bc8671f5fb27@darfuqg4jxsyjib7mjoyg555bnumyxrlm3surzav2ztuy3cssjshmcad.onion:30303,enode://95f9b6e49b4a0aab08c1eaefb09ec973cbae045d95f708a9984689b11beb0d6808b15a25ff1678becefda271c55108bf089bca36cbed343cd75424368ae7e259@aotrm7ankfhfbc6eqik4trucszb2cq2sp35qlvb7ymnj6abn22shuqad.onion:30303,enode://cdd4665492e1b2ea7a2a6e4bdca9aa476df5d52fe14d954092aa0c8420deb9680a010c89d05324d085a645e4311d90e957d535282dda9cbf66caf13fc82c98ff@yaiq5ykw7wsiw4uotmpey57acgpgvyqiebu46jkmf2si6pno2d3jf3qd.onion:30303,enode://cb283d399446b7866fe29aadd39d07642952f78d5dd128dd64487ad15b9b2dc640db5b8dbe2091def609ee0af7bc8034cc44b7cde20cb59af9a1898254bc145c@culnlds77u3l72ndskb7ssxilood2xva3iecab4346mxftt3llz33iqd.onion:30303,enode://5f7223a4aa5f6199eaec0b1a5915528a1427475a36a755dea712aa08464382d37f2a9f9257f2ab7669476f1a852bf04cf6413e8a23834358b1ef8eeb7fe57071@aclfdr4zqoekesppuqjbttan3e45hzj5bbe4zseum5czvqhcpzt7j7yd.onion:30303,enode://cbe8c5ddc6a48e9595f19ece147bcfc26614dfee367a824c2bc12f611772c3fc8dff63a91720ac0db7788a5d0938a5ff56aa4825d89cfb737ad4c6e68882d1dc@rqq2z57echjpfa4rrcy3lt52sfodvrk6frojzpwdmtocb7i2vov2bwyd.onion:30303,enode://bed4aa284f614434ea8a330cd19afdcb41f1db7bbd44bb5345234b6a7bb77165a81ce74c9d0f7b1ddb5f7c110d1912ca710e2aeedbb79697e20b45913f71e9ec@ykw2rhmqtnu32rhwn5bcgqwebrhqu42ky2uzsqzbnsqko7sgbud7teqd.onion:30303
         envFrom:
         - configMapRef:
@@ -923,6 +980,9 @@ spec:
         ports:
         - containerPort: 30303
           name: p2p
+          protocol: TCP
+        - containerPort: 6060
+          name: metrics
           protocol: TCP
         volumeMounts:
         - name: tor-data

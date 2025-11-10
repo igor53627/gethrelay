@@ -1,0 +1,65 @@
+---
+# Headless Service for gethrelay-default instances (metrics)
+apiVersion: v1
+kind: Service
+metadata:
+  name: gethrelay-default-metrics
+  namespace: gethrelay
+  labels:
+    app: gethrelay
+    mode: default
+    metrics: "true"
+spec:
+  clusterIP: None
+  selector:
+    app: gethrelay
+    mode: default
+  ports:
+  - name: metrics
+    port: 6060
+    targetPort: 6060
+    protocol: TCP
+
+---
+# Headless Service for gethrelay-prefer-tor instances (metrics)
+apiVersion: v1
+kind: Service
+metadata:
+  name: gethrelay-prefer-tor-metrics
+  namespace: gethrelay
+  labels:
+    app: gethrelay
+    mode: prefer-tor
+    metrics: "true"
+spec:
+  clusterIP: None
+  selector:
+    app: gethrelay
+    mode: prefer-tor
+  ports:
+  - name: metrics
+    port: 6060
+    targetPort: 6060
+    protocol: TCP
+
+---
+# Headless Service for gethrelay-only-onion instances (metrics)
+apiVersion: v1
+kind: Service
+metadata:
+  name: gethrelay-only-onion-metrics
+  namespace: gethrelay
+  labels:
+    app: gethrelay
+    mode: only-onion
+    metrics: "true"
+spec:
+  clusterIP: None
+  selector:
+    app: gethrelay
+    mode: only-onion
+  ports:
+  - name: metrics
+    port: 6060
+    targetPort: 6060
+    protocol: TCP

@@ -1,0 +1,32 @@
+---
+# ServiceMonitor for Prometheus to auto-discover gethrelay metrics endpoints
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: gethrelay-metrics
+  namespace: gethrelay
+  labels:
+    app: gethrelay
+    release: kube-prometheus-stack
+spec:
+  selector:
+    matchLabels:
+      metrics: "true"
+  namespaceSelector:
+    matchNames:
+    - gethrelay
+  endpoints:
+  - port: metrics
+    interval: 30s
+    path: /debug/metrics/prometheus
+    scheme: http
+    relabelings:
+    # Add mode label from service metadata
+    - sourceLabels: [__meta_kubernetes_service_label_mode]
+      targetLabel: mode
+    # Add pod name
+    - sourceLabels: [__meta_kubernetes_pod_name]
+      targetLabel: pod
+    # Add instance label
+    - sourceLabels: [__meta_kubernetes_pod_label_instance]
+      targetLabel: instance
