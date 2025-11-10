@@ -1,0 +1,255 @@
+# kube-prometheus-stack Helm values for gethrelay monitoring
+# Deploys Prometheus + Grafana + Alertmanager for Tor metrics observability
+
+# Global settings
+nameOverride: "kube-prometheus-stack"
+fullnameOverride: "kube-prometheus-stack"
+
+# Prometheus configuration
+prometheus:
+  prometheusSpec:
+    # Retention and storage
+    retention: 15d
+    retentionSize: "45GB"
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: 50Gi
+          # Uncomment and set storageClassName if needed
+          # storageClassName: standard
+
+    # Resource limits
+    resources:
+      requests:
+        cpu: 500m
+        memory: 2Gi
+      limits:
+        cpu: 2000m
+        memory: 4Gi
+
+    # Service monitors - discover gethrelay metrics
+    serviceMonitorSelectorNilUsesHelmValues: false
+    serviceMonitorSelector: {}
+    podMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelector: {}
+
+    # Additional scrape configs for gethrelay
+    additionalScrapeConfigs: []
+
+    # Enable built-in service monitors
+    serviceMonitorNamespaceSelector:
+      any: true
+
+    # Security context
+    securityContext:
+      runAsNonRoot: true
+      runAsUser: 1000
+      fsGroup: 2000
+
+# Grafana configuration
+grafana:
+  enabled: true
+
+  # Admin credentials
+  adminPassword: "changeme-in-production"
+
+  # Persistence for dashboards
+  persistence:
+    enabled: true
+    size: 10Gi
+    # storageClassName: standard
+
+  # Resource limits
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+  # Ingress configuration (disabled by default, use port-forward)
+  ingress:
+    enabled: false
+    # annotations:
+    #   kubernetes.io/ingress.class: nginx
+    #   cert-manager.io/cluster-issuer: letsencrypt-prod
+    # hosts:
+    #   - grafana.example.com
+    # tls:
+    #   - secretName: grafana-tls
+    #     hosts:
+    #       - grafana.example.com
+
+  # Grafana datasources - Prometheus auto-configured
+  datasources:
+    datasources.yaml:
+      apiVersion: 1
+      datasources:
+        - name: Prometheus
+          type: prometheus
+          url: http://kube-prometheus-stack-prometheus:9090
+          access: proxy
+          isDefault: true
+
+  # Dashboard providers - auto-import from ConfigMaps
+  dashboardProviders:
+    dashboardproviders.yaml:
+      apiVersion: 1
+      providers:
+        - name: 'default'
+          orgId: 1
+          folder: ''
+          type: file
+          disableDeletion: false
+          editable: true
+          options:
+            path: /var/lib/grafana/dashboards/default
+        - name: 'gethrelay'
+          orgId: 1
+          folder: 'Gethrelay'
+          type: file
+          disableDeletion: false
+          editable: true
+          options:
+            path: /var/lib/grafana/dashboards/gethrelay
+
+  # Community dashboards to import
+  dashboards:
+    default:
+      # Kubernetes cluster monitoring
+      kubernetes-cluster:
+        gnetId: 7249
+        revision: 1
+        datasource: Prometheus
+
+      # Node exporter full
+      node-exporter:
+        gnetId: 1860
+        revision: 27
+        datasource: Prometheus
+
+    # Placeholder for custom gethrelay dashboards (added in Phase 4)
+    gethrelay: {}
+
+  # Grafana.ini configuration
+  grafana.ini:
+    server:
+      root_url: "http://localhost:3000"
+    analytics:
+      check_for_updates: false
+
+# Alertmanager configuration
+alertmanager:
+  enabled: true
+
+  alertmanagerSpec:
+    # Storage
+    storage:
+      volumeClaimTemplate:
+        spec:
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: 10Gi
+          # storageClassName: standard
+
+    # Resource limits
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 256Mi
+
+  # Alertmanager configuration
+  config:
+    global:
+      resolve_timeout: 5m
+
+    route:
+      group_by: ['alertname', 'cluster', 'service']
+      group_wait: 10s
+      group_interval: 10s
+      repeat_interval: 12h
+      receiver: 'null'
+      routes:
+        - match:
+            severity: critical
+          receiver: 'critical'
+          continue: true
+        - match:
+            severity: warning
+          receiver: 'warning'
+
+    receivers:
+      - name: 'null'
+
+      - name: 'critical'
+        # Uncomment and configure for Slack
+        # slack_configs:
+        #   - api_url: 'YOUR_SLACK_WEBHOOK_URL'
+        #     channel: '#gethrelay-critical'
+        #     title: 'Critical: {{ .GroupLabels.alertname }}'
+        #     text: '{{ range .Alerts }}{{ .Annotations.description }}{{ end }}'
+
+        # Uncomment and configure for email
+        # email_configs:
+        #   - to: 'ops@example.com'
+        #     from: 'alertmanager@example.com'
+        #     smarthost: 'smtp.gmail.com:587'
+        #     auth_username: 'alertmanager@example.com'
+        #     auth_password: 'your-email-password'
+
+      - name: 'warning'
+        # slack_configs:
+        #   - api_url: 'YOUR_SLACK_WEBHOOK_URL'
+        #     channel: '#gethrelay-alerts'
+        #     title: 'Warning: {{ .GroupLabels.alertname }}'
+        #     text: '{{ range .Alerts }}{{ .Annotations.description }}{{ end }}'
+
+# Prometheus Operator configuration
+prometheusOperator:
+  enabled: true
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+
+# Node exporter - collects host metrics
+nodeExporter:
+  enabled: true
+
+# Kube-state-metrics - collects Kubernetes object metrics
+kubeStateMetrics:
+  enabled: true
+
+# Default rules - include standard Kubernetes alerts
+defaultRules:
+  create: true
+  rules:
+    alertmanager: true
+    etcd: false
+    kubeApiserver: true
+    kubeApiserverAvailability: true
+    kubeApiserverSlos: true
+    kubelet: true
+    kubePrometheusGeneral: true
+    kubePrometheusNodeRecording: true
+    kubernetesApps: true
+    kubernetesResources: true
+    kubernetesStorage: true
+    kubernetesSystem: true
+    kubeScheduler: false
+    kubeStateMetrics: true
+    network: true
+    node: true
+    prometheus: true
+    prometheusOperator: true
