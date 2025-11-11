@@ -825,7 +825,6 @@ spec:
         - --pprof
         - --pprof.addr=0.0.0.0
         - --pprof.port=6060
-        - --staticnodes=enode://30c2b21584369ce7770ed8bb9e59f2eff4b056e365152c9d8d842c44ac45e500b7e6b3cc517b7234b5ea69748dfaed62f4f42fbdd3d0498adefbbda0059cfc54@q5egdubfdzy3qetrgxbtrsbkfbsqolwfc7m23aawekrhe7bgvkjzrvyd.onion:30303,enode://776c2a0f15ebfc48f56a1937440766abe9b183cbf0cef7bb48f158a8e6754903187af22c192ec0b89905f0678814f8a03011028f70ea1fdbdc42f71c690bc447@sz5zwguedzqzu5sbydktwc4cbx46saleurvjhry5bi6sebmwb55arrad.onion:30303,enode://d7a3abd2b1d6ca9ddf67de59f9f5f135fb9483989dd93838e5a73d8c7850f4372607bacaa5194c1aaeea10b11cd145c81d89ea45067fd88093f77b0a6560c35a@4qv32supxht7khatwifyw5mtt4h3xuty46zr3qsurvzmhyniid2w5wid.onion:30303
         envFrom:
         - configMapRef:
             name: gethrelay-config
@@ -933,7 +932,6 @@ spec:
         - --pprof
         - --pprof.addr=0.0.0.0
         - --pprof.port=6060
-        - --staticnodes=enode://30c2b21584369ce7770ed8bb9e59f2eff4b056e365152c9d8d842c44ac45e500b7e6b3cc517b7234b5ea69748dfaed62f4f42fbdd3d0498adefbbda0059cfc54@q5egdubfdzy3qetrgxbtrsbkfbsqolwfc7m23aawekrhe7bgvkjzrvyd.onion:30303,enode://776c2a0f15ebfc48f56a1937440766abe9b183cbf0cef7bb48f158a8e6754903187af22c192ec0b89905f0678814f8a03011028f70ea1fdbdc42f71c690bc447@sz5zwguedzqzu5sbydktwc4cbx46saleurvjhry5bi6sebmwb55arrad.onion:30303,enode://d7a3abd2b1d6ca9ddf67de59f9f5f135fb9483989dd93838e5a73d8c7850f4372607bacaa5194c1aaeea10b11cd145c81d89ea45067fd88093f77b0a6560c35a@4qv32supxht7khatwifyw5mtt4h3xuty46zr3qsurvzmhyniid2w5wid.onion:30303
         envFrom:
         - configMapRef:
             name: gethrelay-config
@@ -1041,7 +1039,6 @@ spec:
         - --pprof
         - --pprof.addr=0.0.0.0
         - --pprof.port=6060
-        - --staticnodes=enode://30c2b21584369ce7770ed8bb9e59f2eff4b056e365152c9d8d842c44ac45e500b7e6b3cc517b7234b5ea69748dfaed62f4f42fbdd3d0498adefbbda0059cfc54@q5egdubfdzy3qetrgxbtrsbkfbsqolwfc7m23aawekrhe7bgvkjzrvyd.onion:30303,enode://776c2a0f15ebfc48f56a1937440766abe9b183cbf0cef7bb48f158a8e6754903187af22c192ec0b89905f0678814f8a03011028f70ea1fdbdc42f71c690bc447@sz5zwguedzqzu5sbydktwc4cbx46saleurvjhry5bi6sebmwb55arrad.onion:30303,enode://d7a3abd2b1d6ca9ddf67de59f9f5f135fb9483989dd93838e5a73d8c7850f4372607bacaa5194c1aaeea10b11cd145c81d89ea45067fd88093f77b0a6560c35a@4qv32supxht7khatwifyw5mtt4h3xuty46zr3qsurvzmhyniid2w5wid.onion:30303
         envFrom:
         - configMapRef:
             name: gethrelay-config
