@@ -156,6 +156,26 @@ var (
 			Usage: "Path to Tor control authentication cookie (default: /var/lib/tor/control_auth_cookie)",
 			Value: "/var/lib/tor/control_auth_cookie",
 		},
+		// HTTP RPC configuration flags
+		&cli.BoolFlag{
+			Name:  "http",
+			Usage: "Enable the HTTP-RPC server",
+		},
+		&cli.StringFlag{
+			Name:  "http.addr",
+			Usage: "HTTP-RPC server listening interface",
+			Value: node.DefaultHTTPHost,
+		},
+		&cli.IntFlag{
+			Name:  "http.port",
+			Usage: "HTTP-RPC server listening port",
+			Value: node.DefaultHTTPPort,
+		},
+		&cli.StringFlag{
+			Name:  "http.api",
+			Usage: "API's offered over the HTTP-RPC interface (comma separated)",
+			Value: "eth,net,web3",
+		},
 	}
 
 	app = flags.NewApp("lightweight Ethereum P2P relay node")
@@ -306,8 +326,18 @@ func runRelay(ctx *cli.Context) error {
 			CookiePath:     ctx.String("tor-cookie"),
 		},
 		UserIdent: ctx.String("identity"),
-		// HTTP RPC is set up manually via setupRPCProxy on port 8545
-		// Don't set HTTPHost/HTTPPort here to avoid port conflict
+	}
+
+	// Configure HTTP RPC if enabled
+	if ctx.Bool("http") {
+		nodeConfig.HTTPHost = ctx.String("http.addr")
+		nodeConfig.HTTPPort = ctx.Int("http.port")
+
+		// Parse API modules from comma-separated string
+		apiModules := ctx.String("http.api")
+		if apiModules != "" {
+			nodeConfig.HTTPModules = splitAndTrim(apiModules)
+		}
 	}
 	
 	// Set NAT
@@ -366,10 +396,20 @@ func runRelay(ctx *cli.Context) error {
 	}
 	defer stack.Close()
 
-	// Setup RPC proxy before starting the stack
-	upstreamURL := ctx.String("rpc.upstream")
-	if err := setupRPCProxy(stack, upstreamURL); err != nil {
-		return fmt.Errorf("failed to setup RPC proxy: %v", err)
+	// Setup RPC based on configuration
+	if ctx.Bool("http") {
+		// Use built-in node HTTP RPC server with admin API
+		// The node will automatically start the HTTP server when stack.Start() is called
+		log.Info("HTTP RPC enabled",
+			"addr", nodeConfig.HTTPHost,
+			"port", nodeConfig.HTTPPort,
+			"apis", nodeConfig.HTTPModules)
+	} else {
+		// Setup legacy RPC proxy before starting the stack (for backward compatibility)
+		upstreamURL := ctx.String("rpc.upstream")
+		if err := setupRPCProxy(stack, upstreamURL); err != nil {
+			return fmt.Errorf("failed to setup RPC proxy: %v", err)
+		}
 	}
 
 	// Create relay service
