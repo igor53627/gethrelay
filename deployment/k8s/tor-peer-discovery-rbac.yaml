@@ -1,0 +1,38 @@
+---
+# ServiceAccount for pods to access Kubernetes API
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: gethrelay-tor-discovery
+  namespace: gethrelay
+
+---
+# Role to allow ConfigMap and Pod read/write operations
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: tor-peer-discovery
+  namespace: gethrelay
+rules:
+- apiGroups: [""]
+  resources: ["configmaps"]
+  verbs: ["get", "create", "update", "patch"]
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list"]
+
+---
+# RoleBinding to bind the Role to the ServiceAccount
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: tor-peer-discovery
+  namespace: gethrelay
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: tor-peer-discovery
+subjects:
+- kind: ServiceAccount
+  name: gethrelay-tor-discovery
+  namespace: gethrelay

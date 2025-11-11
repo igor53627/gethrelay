@@ -1,0 +1,21 @@
+# Dockerfile for Tor Peer Discovery Sidecar
+# This lightweight container runs the peer discovery script
+
+FROM alpine:3.19
+
+# Install required packages
+RUN apk add --no-cache \
+    bash \
+    curl \
+    jq \
+    kubectl
+
+# Copy the discovery script
+COPY deployment/scripts/tor-peer-discovery.sh /usr/local/bin/tor-peer-discovery.sh
+RUN chmod +x /usr/local/bin/tor-peer-discovery.sh
+
+# Set working directory
+WORKDIR /app
+
+# Run the discovery script
+ENTRYPOINT ["/usr/local/bin/tor-peer-discovery.sh"]
