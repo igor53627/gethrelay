@@ -7,125 +7,248 @@ metadata:
   namespace: gethrelay
 data:
   discover-peers.sh: |
-    #!/bin/sh
+    #!/bin/bash
+    # Tor Peer Discovery for Kubernetes Cluster
+    # This script extracts .onion addresses from the local pod and shares them
+    # with other pods via a ConfigMap for cluster-local peer discovery
+
     set -e
 
-    echo "[tor-discovery] Starting Tor peer discovery"
-    echo "[tor-discovery] Pod: ${POD_NAME}"
-    echo "[tor-discovery] Namespace: ${NAMESPACE}"
+    NAMESPACE="${NAMESPACE:-gethrelay}"
+    CONFIGMAP_NAME="${CONFIGMAP_NAME:-tor-peer-addresses}"
+    POD_NAME="${POD_NAME:-$(hostname)}"
+    TOR_HOSTNAME_FILE="${TOR_HOSTNAME_FILE:-/var/lib/tor/hidden_service/hostname}"
+    ENR_FILE="${ENR_FILE:-/data/geth/geth/nodekey}"
+    STATIC_NODES_FILE="${STATIC_NODES_FILE:-/data/geth/static-nodes.json}"
+    MAX_RETRIES="${MAX_RETRIES:-30}"
+    RETRY_DELAY="${RETRY_DELAY:-10}"
 
-    # Wait for Tor hidden service to be created
-    MAX_RETRIES=30
-    RETRY_DELAY=10
-    retries=0
+    echo "[tor-peer-discovery] Starting Tor peer discovery for pod: ${POD_NAME}"
 
-    while [ $retries -lt $MAX_RETRIES ]; do
-      if [ -f "/var/lib/tor/hidden_service/hostname" ]; then
-        ONION_ADDRESS=$(cat /var/lib/tor/hidden_service/hostname | tr -d '[:space:]')
-        if [ -n "$ONION_ADDRESS" ]; then
-          echo "[tor-discovery] Found .onion address: ${ONION_ADDRESS}"
-          break
-        fi
-      fi
-      echo "[tor-discovery] Waiting for Tor hidden service... (attempt $((retries+1))/$MAX_RETRIES)"
-      sleep $RETRY_DELAY
-      retries=$((retries+1))
-    done
-
-    if [ -z "$ONION_ADDRESS" ]; then
-      echo "[tor-discovery] ERROR: Tor hidden service not available after ${MAX_RETRIES} attempts"
-      exit 1
-    fi
-
-    # Get node ID placeholder (will be updated by geth later)
-    # For now, use pod name as identifier
-    NODE_ID="pod-${POD_NAME}"
-
-    echo "[tor-discovery] Node ID: ${NODE_ID}"
-    echo "[tor-discovery] P2P Port: ${P2P_PORT}"
-
-    # Create pod data JSON
-    POD_DATA=$(cat <<EOF
-    {
-      "onion": "${ONION_ADDRESS}",
-      "nodeId": "${NODE_ID}",
-      "port": ${P2P_PORT},
-      "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    # Function to wait for Tor hidden service to be created
+    wait_for_tor_service() {
+        local retries=0
+        # Gethrelay creates ephemeral hidden service via control port
+        # Extract .onion address from gethrelay container logs
+        while [ $retries -lt $MAX_RETRIES ]; do
+            # Look for: "P2P Tor hidden service ready  onion=xxx.onion"
+            if kubectl logs -n ${NAMESPACE} ${POD_NAME} -c gethrelay --tail=100 2>/dev/null | grep -q "P2P Tor hidden service ready"; then
+                ONION_ADDRESS=$(kubectl logs -n ${NAMESPACE} ${POD_NAME} -c gethrelay --tail=100 2>/dev/null | grep "P2P Tor hidden service ready" | head -1 | sed -n 's/.*onion=\([a-z0-9]*\.onion\).*/\1/p')
+                if [ -n "$ONION_ADDRESS" ]; then
+                    echo "[tor-peer-discovery] Found .onion address: ${ONION_ADDRESS}"
+                    return 0
+                fi
+            fi
+            echo "[tor-peer-discovery] Waiting for Tor hidden service... (attempt $((retries+1))/$MAX_RETRIES)"
+            sleep $RETRY_DELAY
+            retries=$((retries+1))
+        done
+        echo "[tor-peer-discovery] ERROR: Tor hidden service not available after ${MAX_RETRIES} attempts"
+        return 1
     }
-    EOF
-    )
 
-    echo "[tor-discovery] Pod data: ${POD_DATA}"
-
-    # Update ConfigMap with this pod's information
-    # First, try to get existing ConfigMap
-    if ! kubectl get configmap tor-peer-addresses -n ${NAMESPACE} >/dev/null 2>&1; then
-      echo "[tor-discovery] Creating tor-peer-addresses ConfigMap"
-      kubectl create configmap tor-peer-addresses -n ${NAMESPACE} --from-literal=init=true
-    fi
-
-    # Patch ConfigMap with this pod's data
-    echo "[tor-discovery] Updating ConfigMap with pod data"
-    kubectl patch configmap tor-peer-addresses -n ${NAMESPACE} \
-      --type merge -p "{\"data\":{\"${POD_NAME}\": $(echo "$POD_DATA" | sed 's/"/\\"/g' | tr -d '\n' | sed 's/^/"/;s/$/"/')}}"
-
-    echo "[tor-discovery] ConfigMap updated successfully"
-
-    # Build static-nodes.json from ConfigMap
-    echo "[tor-discovery] Building static-nodes.json from cluster peers"
-
-    # Get ConfigMap data
-    kubectl get configmap tor-peer-addresses -n ${NAMESPACE} -o json > /tmp/configmap.json
-
-    # Extract peer data and build static nodes list
-    echo "[" > /data/geth/static-nodes.json
-    FIRST=true
-
-    # Get all keys except 'init' and current pod
-    PEER_KEYS=$(cat /tmp/configmap.json | grep -o '"[^"]*":' | sed 's/"//g;s/://g' | grep -v "^init$" | grep -v "^${POD_NAME}$" || echo "")
-
-    if [ -z "$PEER_KEYS" ]; then
-      echo "[tor-discovery] No peers found yet, creating empty static-nodes.json"
-      echo "[]" > /data/geth/static-nodes.json
-    else
-      for PEER_KEY in $PEER_KEYS; do
-        echo "[tor-discovery] Processing peer: ${PEER_KEY}"
-
-        # Extract peer data using grep and sed (no jq available in busybox)
-        PEER_JSON=$(cat /tmp/configmap.json | grep -A 5 "\"${PEER_KEY}\":" | tail -n 4)
-        PEER_ONION=$(echo "$PEER_JSON" | grep "onion" | sed 's/.*"onion"[^"]*"\([^"]*\)".*/\1/')
-        PEER_NODE_ID=$(echo "$PEER_JSON" | grep "nodeId" | sed 's/.*"nodeId"[^"]*"\([^"]*\)".*/\1/')
-        PEER_PORT=$(echo "$PEER_JSON" | grep "port" | sed 's/.*"port"[^0-9]*\([0-9]*\).*/\1/')
-
-        if [ -z "$PEER_ONION" ] || [ "$PEER_ONION" = "null" ]; then
-          echo "[tor-discovery] Skipping invalid peer: ${PEER_KEY}"
-          continue
+    # Function to get node ID from ENR/nodekey
+    get_node_id() {
+        # Try to get from nodekey file if it exists
+        if [ -f "$ENR_FILE" ]; then
+            echo "[tor-peer-discovery] Found nodekey file at ${ENR_FILE}"
+            # The nodekey file contains the private key in hex format
+            # We need to derive the public key from it
+            # For now, we'll try to use bootnode to extract the enode
+            if command -v bootnode >/dev/null 2>&1; then
+                NODE_KEY_HEX=$(cat "$ENR_FILE")
+                # bootnode can generate enode from nodekey
+                ENODE=$(bootnode -nodekey <(echo "$NODE_KEY_HEX") -writeaddress 2>/dev/null || echo "")
+                if [ -n "$ENODE" ]; then
+                    echo "[tor-peer-discovery] Got node ID from nodekey: ${ENODE:0:16}..."
+                    echo "$ENODE"
+                    return 0
+                fi
+            fi
         fi
 
-        # Build enode URL (using placeholder node ID)
-        ENODE_URL="enode://${PEER_NODE_ID}@${PEER_ONION}:${PEER_PORT}"
+        # Try to get from running geth admin API
+        if command -v curl >/dev/null 2>&1; then
+            NODE_INFO=$(curl -s -X POST -H "Content-Type: application/json" \
+                --data '{"jsonrpc":"2.0","method":"admin_nodeInfo","params":[],"id":1}' \
+                http://localhost:8545 2>/dev/null | grep -o '"enode://[^"]*"' | sed 's/"//g' || echo "")
 
-        echo "[tor-discovery] Adding peer: ${PEER_KEY} -> ${PEER_ONION}"
+            if [ -n "$NODE_INFO" ]; then
+                # Extract node ID from enode URL (after enode:// and before @)
+                NODE_ID=$(echo "$NODE_INFO" | sed 's/enode:\/\/\([^@]*\)@.*/\1/')
+                if [ -n "$NODE_ID" ] && [ ${#NODE_ID} -eq 128 ]; then
+                    echo "[tor-peer-discovery] Got node ID from geth: ${NODE_ID:0:16}..."
+                    echo "$NODE_ID"
+                    return 0
+                fi
+            fi
+        fi
 
-        # Add to array
-        if [ "$FIRST" = "true" ]; then
-          echo "  \"${ENODE_URL}\"" >> /data/geth/static-nodes.json
-          FIRST=false
+        # Last resort: generate a random valid hex node ID (128 hex chars)
+        # This is a workaround - the node will update its own ID once it starts
+        echo "[tor-peer-discovery] WARNING: Could not extract real node ID, using placeholder"
+        echo "[tor-peer-discovery] Static nodes will need to be updated after geth starts"
+        # Generate 64 random bytes = 128 hex characters
+        dd if=/dev/urandom bs=64 count=1 2>/dev/null | xxd -p -c 128
+    }
+
+    # Function to update ConfigMap with this pod's .onion address
+    update_configmap() {
+        local onion_address="$1"
+        local node_id="$2"
+        local p2p_port="${P2P_PORT:-30303}"
+
+        echo "[tor-peer-discovery] Updating ConfigMap with this pod's information"
+        echo "[tor-peer-discovery]   Pod: ${POD_NAME}"
+        echo "[tor-peer-discovery]   Onion: ${onion_address}"
+        echo "[tor-peer-discovery]   Node ID: ${node_id:0:32}..."
+        echo "[tor-peer-discovery]   Port: ${p2p_port}"
+
+        # Create or patch ConfigMap with this pod's data
+        # We store each pod's data as a separate key for easy merging
+        kubectl get configmap "$CONFIGMAP_NAME" -n "$NAMESPACE" >/dev/null 2>&1 || \
+            kubectl create configmap "$CONFIGMAP_NAME" -n "$NAMESPACE" --from-literal=init=true
+
+        # Store the pod's data in JSON format
+        POD_DATA=$(cat <<EOF
+{
+  "onion": "${onion_address}",
+  "nodeId": "${node_id}",
+  "port": ${p2p_port},
+  "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+}
+EOF
+)
+
+        # Use jq if available for proper JSON string escaping, otherwise fallback to sed
+        if command -v jq >/dev/null 2>&1; then
+            kubectl patch configmap "$CONFIGMAP_NAME" -n "$NAMESPACE" \
+                --type merge -p "{\"data\":{\"${POD_NAME}\": $(echo "$POD_DATA" | jq -R -s .)}}"
         else
-          echo "  ,\"${ENODE_URL}\"" >> /data/geth/static-nodes.json
+            kubectl patch configmap "$CONFIGMAP_NAME" -n "$NAMESPACE" \
+                --type merge -p "{\"data\":{\"${POD_NAME}\": $(echo "$POD_DATA" | sed 's/\"/\\\"/g' | tr -d '\n' | sed 's/^/\"/;s/$/\"/')}}"
         fi
-      done
-    fi
 
-    echo "]" >> /data/geth/static-nodes.json
+        echo "[tor-peer-discovery] ConfigMap updated successfully"
+    }
 
-    # Count peers
-    PEER_COUNT=$(grep -c "enode://" /data/geth/static-nodes.json || echo "0")
-    echo "[tor-discovery] Built static-nodes.json with ${PEER_COUNT} peers"
+    # Function to build static-nodes.json from ConfigMap
+    build_static_nodes() {
+        local this_pod="$POD_NAME"
+        local p2p_port="${P2P_PORT:-30303}"
 
-    if [ "$PEER_COUNT" -gt 0 ]; then
-      echo "[tor-discovery] Static nodes content:"
-      cat /data/geth/static-nodes.json
-    fi
+        echo "[tor-peer-discovery] Building static-nodes.json from cluster peers"
 
-    echo "[tor-discovery] Discovery complete"
+        # Get ConfigMap data - use jq if available, otherwise fallback to jsonpath
+        if command -v jq >/dev/null 2>&1; then
+            CONFIGMAP_DATA=$(kubectl get configmap "$CONFIGMAP_NAME" -n "$NAMESPACE" -o json 2>/dev/null || echo "{}")
+        else
+            CONFIGMAP_DATA="{}"
+        fi
+
+        if [ "$CONFIGMAP_DATA" = "{}" ]; then
+            echo "[tor-peer-discovery] ConfigMap not found or empty, creating empty static-nodes.json"
+            echo "[]" > "$STATIC_NODES_FILE"
+            return 0
+        fi
+
+        # Parse ConfigMap and build static nodes array
+        STATIC_NODES="["
+        FIRST=true
+
+        # Get all pod data from ConfigMap (excluding 'init' key)
+        if command -v jq >/dev/null 2>&1; then
+            PEER_KEYS=$(echo "$CONFIGMAP_DATA" | jq -r '.data | keys[]' | grep -v '^init$' || echo "")
+        else
+            PEER_KEYS=$(kubectl get configmap "$CONFIGMAP_NAME" -n "$NAMESPACE" -o jsonpath='{.data}' | \
+                grep -o '"gethrelay-only-onion-[0-9]-[0-9]"' | \
+                sed 's/"//g' || echo "")
+        fi
+
+        for POD_KEY in $PEER_KEYS; do
+            # Skip self
+            if [ "$POD_KEY" = "$this_pod" ]; then
+                echo "[tor-peer-discovery] Skipping self: ${POD_KEY}"
+                continue
+            fi
+
+            # Extract peer data
+            if command -v jq >/dev/null 2>&1; then
+                PEER_DATA=$(echo "$CONFIGMAP_DATA" | jq -r ".data[\"${POD_KEY}\"]" | jq -r .)
+                PEER_ONION=$(echo "$PEER_DATA" | jq -r '.onion')
+                PEER_NODE_ID=$(echo "$PEER_DATA" | jq -r '.nodeId')
+                PEER_PORT=$(echo "$PEER_DATA" | jq -r '.port')
+            else
+                PEER_DATA=$(kubectl get configmap "$CONFIGMAP_NAME" -n "$NAMESPACE" -o jsonpath="{.data.${POD_KEY}}")
+                PEER_ONION=$(echo "$PEER_DATA" | sed 's/.*"onion"[^"]*"\([^"]*\)".*/\1/')
+                PEER_NODE_ID=$(echo "$PEER_DATA" | sed 's/.*"nodeId"[^"]*"\([^"]*\)".*/\1/')
+                PEER_PORT=$(echo "$PEER_DATA" | sed 's/.*"port"[^0-9]*\([0-9]*\).*/\1/')
+            fi
+
+            if [ -z "$PEER_ONION" ] || [ "$PEER_ONION" = "null" ]; then
+                echo "[tor-peer-discovery] Skipping invalid peer: ${POD_KEY}"
+                continue
+            fi
+
+            # Build enode URL
+            ENODE_URL="enode://${PEER_NODE_ID}@${PEER_ONION}:${PEER_PORT}"
+
+            echo "[tor-peer-discovery] Adding peer: ${POD_KEY} -> ${PEER_ONION}"
+
+            # Add to array
+            if [ "$FIRST" = true ]; then
+                STATIC_NODES="${STATIC_NODES}\"${ENODE_URL}\""
+                FIRST=false
+            else
+                STATIC_NODES="${STATIC_NODES},\"${ENODE_URL}\""
+            fi
+        done
+
+        STATIC_NODES="${STATIC_NODES}]"
+
+        # Write static-nodes.json - use jq if available for proper formatting
+        if command -v jq >/dev/null 2>&1; then
+            echo "$STATIC_NODES" | jq . > "$STATIC_NODES_FILE"
+        else
+            echo "$STATIC_NODES" > "$STATIC_NODES_FILE"
+        fi
+
+        # Count peers
+        if command -v jq >/dev/null 2>&1; then
+            PEER_COUNT=$(echo "$STATIC_NODES" | jq '. | length')
+        else
+            PEER_COUNT=$(grep -c "enode://" "$STATIC_NODES_FILE" || echo "0")
+        fi
+
+        echo "[tor-peer-discovery] Built static-nodes.json with ${PEER_COUNT} peers"
+        if [ "$PEER_COUNT" -gt 0 ]; then
+            echo "[tor-peer-discovery] Static nodes content:"
+            cat "$STATIC_NODES_FILE"
+        fi
+    }
+
+    # Main execution
+    main() {
+        echo "[tor-peer-discovery] Running in sidecar mode"
+
+        # Wait for Tor hidden service
+        if ! wait_for_tor_service; then
+            echo "[tor-peer-discovery] ERROR: Failed to get .onion address"
+            exit 1
+        fi
+
+        # Get node ID
+        NODE_ID=$(get_node_id)
+
+        # Update ConfigMap with this pod's information
+        update_configmap "$ONION_ADDRESS" "$NODE_ID"
+
+        # Build initial static-nodes.json
+        build_static_nodes
+
+        echo "[tor-peer-discovery] Initial discovery complete, entering sleep mode to keep container alive"
+        sleep infinity
+    }
+
+    # Run main function
+    main

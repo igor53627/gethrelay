@@ -17,6 +17,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
@@ -336,10 +337,27 @@ func runRelay(ctx *cli.Context) error {
 		nodeConfig.P2P.BootstrapNodes = mustParseBootnodes(urls)
 	}
 
-	// Set static nodes
+	// Set static nodes from command line
 	if ctx.IsSet("staticnodes") {
 		urls := splitAndTrim(ctx.String("staticnodes"))
 		nodeConfig.P2P.StaticNodes = mustParseBootnodes(urls)
+	}
+
+	// Load static nodes from file if it exists (for Kubernetes peer discovery)
+	// Try multiple common locations
+	staticNodesPaths := []string{
+		"/data/geth/geth/static-nodes.json",  // Default geth location
+		"/data/geth/static-nodes.json",        // Simplified location
+		"./static-nodes.json",                 // Current directory
+	}
+
+	for _, path := range staticNodesPaths {
+		if fileNodes, err := loadStaticNodesFile(path); err == nil && len(fileNodes) > 0 {
+			log.Info("Loaded static nodes from file", "path", path, "count", len(fileNodes))
+			// Append file-based static nodes to any command-line specified ones
+			nodeConfig.P2P.StaticNodes = append(nodeConfig.P2P.StaticNodes, fileNodes...)
+			break // Only load from first found file
+		}
 	}
 
 	stack, err := node.New(nodeConfig)
@@ -385,6 +403,52 @@ func runRelay(ctx *cli.Context) error {
 }
 
 // Helper functions to avoid importing cmd/utils
+
+// loadStaticNodesFile loads static nodes from a JSON file.
+// Returns nil with no error if file doesn't exist.
+func loadStaticNodesFile(path string) ([]*enode.Node, error) {
+	// Check if file exists
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		return nil, nil // File doesn't exist, not an error
+	}
+
+	// Read file
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read static nodes file: %w", err)
+	}
+
+	// Parse JSON array of enode URLs
+	var urls []string
+	if err := json.Unmarshal(data, &urls); err != nil {
+		return nil, fmt.Errorf("failed to parse static nodes JSON: %w", err)
+	}
+
+	// Parse enode URLs
+	nodes := make([]*enode.Node, 0, len(urls))
+	for i, url := range urls {
+		if url == "" {
+			continue
+		}
+		node, err := enode.Parse(enode.ValidSchemes, url)
+		if err != nil {
+			log.Warn("Invalid static node URL", "index", i, "url", url, "err", err)
+			continue
+		}
+
+		// Debug: Check if parsed node has Onion3 ENR entry
+		var onion enr.Onion3
+		if node.Load(&onion) == nil && onion != "" {
+			log.Info("loadStaticNodesFile: Loaded .onion static node", "peer", node.ID(), "onion", string(onion), "url", url)
+		} else {
+			log.Info("loadStaticNodesFile: Loaded clearnet static node", "peer", node.ID(), "url", url)
+		}
+
+		nodes = append(nodes, node)
+	}
+
+	return nodes, nil
+}
 
 func splitAndTrim(input string) []string {
 	var ret []string
