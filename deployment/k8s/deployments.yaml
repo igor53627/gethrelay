@@ -776,6 +776,8 @@ spec:
         instance: only-onion-1
         mode: only-onion
     spec:
+
+      serviceAccountName: gethrelay-tor-discovery
       securityContext:
         fsGroup: 100
       initContainers:
@@ -785,6 +787,29 @@ spec:
         volumeMounts:
         - name: tor-data
           mountPath: /var/lib/tor
+      - name: tor-peer-discovery
+        image: bitnami/kubectl:latest
+        command: ['/bin/sh']
+        args: ['/scripts/discover-peers.sh']
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: P2P_PORT
+          value: "30303"
+        volumeMounts:
+        - name: tor-data
+          mountPath: /var/lib/tor
+          readOnly: true
+        - name: geth-data
+          mountPath: /data/geth
+        - name: discovery-script
+          mountPath: /scripts
       containers:
       - name: tor
         image: dockurr/tor:latest
@@ -849,6 +874,12 @@ spec:
       - name: torrc
         configMap:
           name: torrc-with-hidden-service
+      - name: discovery-script
+        configMap:
+          name: tor-peer-discovery-script
+          defaultMode: 0755
+      - name: geth-data
+        emptyDir: {}
   volumeClaimTemplates:
   - metadata:
       name: tor-data
@@ -883,6 +914,8 @@ spec:
         instance: only-onion-2
         mode: only-onion
     spec:
+
+      serviceAccountName: gethrelay-tor-discovery
       securityContext:
         fsGroup: 100
       initContainers:
@@ -892,6 +925,29 @@ spec:
         volumeMounts:
         - name: tor-data
           mountPath: /var/lib/tor
+      - name: tor-peer-discovery
+        image: bitnami/kubectl:latest
+        command: ['/bin/sh']
+        args: ['/scripts/discover-peers.sh']
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: P2P_PORT
+          value: "30303"
+        volumeMounts:
+        - name: tor-data
+          mountPath: /var/lib/tor
+          readOnly: true
+        - name: geth-data
+          mountPath: /data/geth
+        - name: discovery-script
+          mountPath: /scripts
       containers:
       - name: tor
         image: dockurr/tor:latest
@@ -956,6 +1012,12 @@ spec:
       - name: torrc
         configMap:
           name: torrc-with-hidden-service
+      - name: discovery-script
+        configMap:
+          name: tor-peer-discovery-script
+          defaultMode: 0755
+      - name: geth-data
+        emptyDir: {}
   volumeClaimTemplates:
   - metadata:
       name: tor-data
@@ -990,6 +1052,8 @@ spec:
         instance: only-onion-3
         mode: only-onion
     spec:
+
+      serviceAccountName: gethrelay-tor-discovery
       securityContext:
         fsGroup: 100
       initContainers:
@@ -999,6 +1063,29 @@ spec:
         volumeMounts:
         - name: tor-data
           mountPath: /var/lib/tor
+      - name: tor-peer-discovery
+        image: bitnami/kubectl:latest
+        command: ['/bin/sh']
+        args: ['/scripts/discover-peers.sh']
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: P2P_PORT
+          value: "30303"
+        volumeMounts:
+        - name: tor-data
+          mountPath: /var/lib/tor
+          readOnly: true
+        - name: geth-data
+          mountPath: /data/geth
+        - name: discovery-script
+          mountPath: /scripts
       containers:
       - name: tor
         image: dockurr/tor:latest
@@ -1063,6 +1150,12 @@ spec:
       - name: torrc
         configMap:
           name: torrc-with-hidden-service
+      - name: discovery-script
+        configMap:
+          name: tor-peer-discovery-script
+          defaultMode: 0755
+      - name: geth-data
+        emptyDir: {}
   volumeClaimTemplates:
   - metadata:
       name: tor-data
