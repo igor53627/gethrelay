@@ -25,6 +25,7 @@ import (
 	mrand "math/rand"
 	"net"
 	"net/netip"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -438,16 +439,30 @@ func (d *dialScheduler) removeFromStaticPool(idx int) {
 	task.staticPoolIndex = -1
 }
 
+// isOnionAddress checks if a hostname is a Tor .onion address.
+// .onion addresses must be resolved through Tor's SOCKS5 proxy, not DNS.
+func isOnionAddress(hostname string) bool {
+	return strings.HasSuffix(strings.ToLower(hostname), ".onion")
+}
+
 // dnsResolveHostname updates the given node from its DNS hostname.
 // This is used to resolve static dial targets.
+// .onion addresses are skipped as they must be resolved through Tor SOCKS5, not DNS.
 func (d *dialScheduler) dnsResolveHostname(n *enode.Node) (*enode.Node, error) {
-	if n.Hostname() == "" {
+	hostname := n.Hostname()
+	if hostname == "" {
+		return n, nil
+	}
+
+	// Skip DNS resolution for .onion addresses - they must be resolved via Tor SOCKS5
+	if isOnionAddress(hostname) {
+		d.log.Trace("Skipping DNS resolution for .onion address", "hostname", hostname)
 		return n, nil
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	foundIPs, err := d.dnsLookupFunc(ctx, "ip", n.Hostname())
+	foundIPs, err := d.dnsLookupFunc(ctx, "ip", hostname)
 	if err != nil {
 		return n, err
 	}
@@ -547,7 +562,11 @@ func (t *dialTask) run(d *dialScheduler) {
 			}
 		}
 		// Try resolving node ID through the DHT if there is no IP address.
-		if !t.dest().IPAddr().IsValid() {
+		// Skip DHT resolution for .onion addresses - they don't need IP addresses
+		// and will be resolved by TorDialer through SOCKS5 proxy.
+		dest := t.dest()
+		isOnion := dest.Hostname() != "" && isOnionAddress(dest.Hostname())
+		if !dest.IPAddr().IsValid() && !isOnion {
 			if !t.resolve(d) {
 				return // DHT resolve failed, skip dial.
 			}
