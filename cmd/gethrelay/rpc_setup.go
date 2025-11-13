@@ -92,8 +92,8 @@ func (api *ethAPI) SendRawTransaction(ctx context.Context, encodedTx hexutil.Byt
 }
 
 // setupRPCProxy configures the RPC proxy for the node
-// It creates a standalone HTTP server on port 8545
-func setupRPCProxy(stack *node.Node, upstreamURL string) error {
+// It creates a standalone HTTP server on the specified address and port
+func setupRPCProxy(stack *node.Node, upstreamURL string, addr string, port int) error {
 	// Create a minimal RPC server for local methods
 	localServer := rpc.NewServer()
 	
@@ -111,20 +111,21 @@ func setupRPCProxy(stack *node.Node, upstreamURL string) error {
 	
 	// Create the proxy handler
 	proxy := newRPCProxy(upstreamURL, localServer)
-	
-	// Start HTTP server on port 8545
+
+	// Start HTTP server on configured address and port
+	listenAddr := fmt.Sprintf("%s:%d", addr, port)
 	go func() {
 		server := &http.Server{
-			Addr:    ":8545",
+			Addr:    listenAddr,
 			Handler: proxy,
 		}
-		
-		log.Info("Starting JSON-RPC proxy server", "upstream", upstreamURL, "port", 8545)
+
+		log.Info("Starting JSON-RPC proxy server", "upstream", upstreamURL, "addr", addr, "port", port)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Error("RPC proxy server error", "err", err)
 		}
 	}()
-	
+
 	return nil
 }
 

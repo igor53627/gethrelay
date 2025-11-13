@@ -140,6 +140,26 @@ var (
 			Name:  "only-onion",
 			Usage: "Restrict to .onion addresses only (requires --tor-proxy)",
 		},
+		// HTTP RPC configuration flags
+		&cli.BoolFlag{
+			Name:  "http",
+			Usage: "Enable the HTTP-RPC server",
+		},
+		&cli.StringFlag{
+			Name:  "http.addr",
+			Usage: "HTTP-RPC server listening interface",
+			Value: node.DefaultHTTPHost,
+		},
+		&cli.IntFlag{
+			Name:  "http.port",
+			Usage: "HTTP-RPC server listening port",
+			Value: node.DefaultHTTPPort,
+		},
+		&cli.StringFlag{
+			Name:  "http.api",
+			Usage: "API's offered over the HTTP-RPC interface (comma separated)",
+			Value: "eth,net,web3",
+		},
 	}
 
 	app = flags.NewApp("lightweight Ethereum P2P relay node")
@@ -285,9 +305,8 @@ func runRelay(ctx *cli.Context) error {
 			OnlyOnion:     ctx.Bool("only-onion"),
 		},
 		UserIdent: ctx.String("identity"),
-		// HTTP RPC will be set up manually via setupRPCProxy
 	}
-	
+
 	// Set NAT
 	if ctx.IsSet("nat") {
 		natif, err := nat.Parse(ctx.String("nat"))
@@ -328,9 +347,12 @@ func runRelay(ctx *cli.Context) error {
 	}
 	defer stack.Close()
 
-	// Setup RPC proxy before starting the stack
+	// Setup RPC proxy with configured HTTP settings
+	httpAddr := ctx.String("http.addr")
+	httpPort := ctx.Int("http.port")
 	upstreamURL := ctx.String("rpc.upstream")
-	if err := setupRPCProxy(stack, upstreamURL); err != nil {
+
+	if err := setupRPCProxy(stack, upstreamURL, httpAddr, httpPort); err != nil {
 		return fmt.Errorf("failed to setup RPC proxy: %v", err)
 	}
 
