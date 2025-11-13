@@ -27,6 +27,7 @@ import (
 	"net"
 	"net/netip"
 	"slices"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -721,6 +722,12 @@ running:
 					activeOutboundPeerGauge.Inc(1)
 				}
 				activePeerGauge.Inc(1)
+				// Track Tor vs clearnet peer connections
+				if strings.Contains(p.RemoteAddr().String(), ".onion") {
+					activeTorPeerGauge.Inc(1)
+				} else {
+					activeClearnetPeerGauge.Inc(1)
+				}
 			}
 			c.cont <- err
 
@@ -737,6 +744,12 @@ running:
 				activeOutboundPeerGauge.Dec(1)
 			}
 			activePeerGauge.Dec(1)
+			// Track Tor vs clearnet peer disconnections
+			if strings.Contains(pd.RemoteAddr().String(), ".onion") {
+				activeTorPeerGauge.Dec(1)
+			} else {
+				activeClearnetPeerGauge.Dec(1)
+			}
 		}
 	}
 
