@@ -280,14 +280,31 @@ loop:
 		case node := <-d.addStaticCh:
 			id := node.ID()
 			_, exists := d.static[id]
+			// Debug logging for .onion static nodes
+			if strings.Contains(node.URLv4(), ".onion") {
+				d.log.Info("addStatic called for .onion node", "id", id, "url", node.URLv4(), "exists", exists)
+			}
 			d.log.Trace("Adding static node", "id", id, "endpoint", nodeEndpointForLog(node), "added", !exists)
 			if exists {
+				if strings.Contains(node.URLv4(), ".onion") {
+					d.log.Info("addStatic: .onion node already exists, skipping", "id", id)
+				}
 				continue loop
 			}
 			task := newDialTask(node, staticDialedConn)
 			d.static[id] = task
+			if strings.Contains(node.URLv4(), ".onion") {
+				d.log.Info("addStatic: calling checkDial for .onion node", "id", id)
+			}
 			if d.checkDial(node) == nil {
 				d.addToStaticPool(task)
+				if strings.Contains(node.URLv4(), ".onion") {
+					d.log.Info("addStatic: .onion node ADDED to staticPool", "id", id)
+				}
+			} else {
+				if strings.Contains(node.URLv4(), ".onion") {
+					d.log.Info("addStatic: .onion node REJECTED by checkDial", "id", id)
+				}
 			}
 
 		case node := <-d.remStaticCh:
