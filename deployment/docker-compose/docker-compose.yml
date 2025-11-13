@@ -1,0 +1,206 @@
+version: '3.8'
+
+services:
+  # Shared Tor daemon for all nodes
+  # Provides SOCKS5 proxy on port 9050 and control port on 9051
+  tor:
+    image: alpine/tor:latest
+    container_name: tor-proxy
+    volumes:
+      - tor-data:/var/lib/tor
+      - tor-config:/etc/tor
+    command:
+      - --SocksPort
+      - "0.0.0.0:9050"
+      - --ControlPort
+      - "0.0.0.0:9051"
+      - --CookieAuthentication
+      - "1"
+      - --Log
+      - "notice stdout"
+    networks:
+      - tor-network
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "9051"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+    restart: unless-stopped
+
+  # Gethrelay node 1
+  # Uses Tor for all .onion connections with DHT discovery enabled
+  gethrelay-1:
+    build:
+      context: ../../
+      dockerfile: Dockerfile
+    container_name: gethrelay-1
+    depends_on:
+      tor:
+        condition: service_healthy
+    volumes:
+      - geth-data-1:/data
+      - ./scripts:/scripts:ro
+    command:
+      - --tor-socks-proxy=tor:9050
+      - --only-onion
+      - --datadir=/data/geth
+      - --v5disc
+      - --maxpeers=50
+      - --http
+      - --http.addr=127.0.0.1
+      - --http.port=8545
+      - --http.api=admin,eth,net
+      - --verbosity=3
+    networks:
+      - tor-network
+    environment:
+      - NODE_NAME=gethrelay-1
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "30303"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped
+
+  # Peer manager sidecar for node 1
+  # Monitors DHT-discovered peers and promotes .onion peers to trusted status
+  peer-manager-1:
+    image: alpine:latest
+    container_name: peer-manager-1
+    network_mode: service:gethrelay-1
+    depends_on:
+      gethrelay-1:
+        condition: service_healthy
+    volumes:
+      - ./scripts:/scripts:ro
+    command: ["/scripts/peer-manager.sh"]
+    environment:
+      - GETH_RPC=http://127.0.0.1:8545
+      - NODE_NAME=gethrelay-1
+      - PEER_CHECK_INTERVAL=30
+    restart: unless-stopped
+
+  # Gethrelay node 2
+  gethrelay-2:
+    build:
+      context: ../../
+      dockerfile: Dockerfile
+    container_name: gethrelay-2
+    depends_on:
+      tor:
+        condition: service_healthy
+    volumes:
+      - geth-data-2:/data
+      - ./scripts:/scripts:ro
+    command:
+      - --tor-socks-proxy=tor:9050
+      - --only-onion
+      - --datadir=/data/geth
+      - --v5disc
+      - --maxpeers=50
+      - --http
+      - --http.addr=127.0.0.1
+      - --http.port=8545
+      - --http.api=admin,eth,net
+      - --verbosity=3
+    networks:
+      - tor-network
+    environment:
+      - NODE_NAME=gethrelay-2
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "30303"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped
+
+  # Peer manager sidecar for node 2
+  peer-manager-2:
+    image: alpine:latest
+    container_name: peer-manager-2
+    network_mode: service:gethrelay-2
+    depends_on:
+      gethrelay-2:
+        condition: service_healthy
+    volumes:
+      - ./scripts:/scripts:ro
+    command: ["/scripts/peer-manager.sh"]
+    environment:
+      - GETH_RPC=http://127.0.0.1:8545
+      - NODE_NAME=gethrelay-2
+      - PEER_CHECK_INTERVAL=30
+    restart: unless-stopped
+
+  # Gethrelay node 3
+  gethrelay-3:
+    build:
+      context: ../../
+      dockerfile: Dockerfile
+    container_name: gethrelay-3
+    depends_on:
+      tor:
+        condition: service_healthy
+    volumes:
+      - geth-data-3:/data
+      - ./scripts:/scripts:ro
+    command:
+      - --tor-socks-proxy=tor:9050
+      - --only-onion
+      - --datadir=/data/geth
+      - --v5disc
+      - --maxpeers=50
+      - --http
+      - --http.addr=127.0.0.1
+      - --http.port=8545
+      - --http.api=admin,eth,net
+      - --verbosity=3
+    networks:
+      - tor-network
+    environment:
+      - NODE_NAME=gethrelay-3
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "30303"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped
+
+  # Peer manager sidecar for node 3
+  peer-manager-3:
+    image: alpine:latest
+    container_name: peer-manager-3
+    network_mode: service:gethrelay-3
+    depends_on:
+      gethrelay-3:
+        condition: service_healthy
+    volumes:
+      - ./scripts:/scripts:ro
+    command: ["/scripts/peer-manager.sh"]
+    environment:
+      - GETH_RPC=http://127.0.0.1:8545
+      - NODE_NAME=gethrelay-3
+      - PEER_CHECK_INTERVAL=30
+    restart: unless-stopped
+
+volumes:
+  geth-data-1:
+    driver: local
+  geth-data-2:
+    driver: local
+  geth-data-3:
+    driver: local
+  tor-data:
+    driver: local
+  tor-config:
+    driver: local
+
+networks:
+  tor-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
