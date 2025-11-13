@@ -596,7 +596,11 @@ func (t *dialTask) dest() *enode.Node {
 
 func (t *dialTask) run(d *dialScheduler) {
 	dest := t.dest()
-	isOnion := dest.Hostname() != "" && isOnionAddress(dest.Hostname())
+	hostname := dest.Hostname()
+	isOnion := hostname != "" && isOnionAddress(hostname)
+
+	// UNCONDITIONAL logging to debug .onion dial issue
+	d.log.Info("dialTask.run() ENTRY", "id", dest.ID(), "hostname", hostname, "hasHostname", hostname != "", "isOnion", isOnion, "url", dest.URLv4())
 
 	// Debug logging for .onion dial tasks
 	if isOnion {
