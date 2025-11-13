@@ -1,0 +1,175 @@
+version: '3.8'
+
+services:
+  # Shared Tor daemon for all nodes
+  tor:
+    image: dperson/torproxy:latest
+    container_name: tor-proxy
+    volumes:
+      - tor-data:/var/lib/tor
+    environment:
+      - TOR_NewCircuitPeriod=15
+    networks:
+      - tor-network
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "9050"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+    restart: unless-stopped
+
+  # Gethrelay node 1
+  gethrelay-1:
+    image: igor53627/gethrelay:latest
+    container_name: gethrelay-1
+    depends_on:
+      tor:
+        condition: service_healthy
+    volumes:
+      - geth-data-1:/data
+    command:
+      - --tor-proxy=tor:9050
+      - --only-onion
+      - --datadir=/data/geth
+      - --v5disc
+      - --maxpeers=50
+      - --http
+      - --http.addr=0.0.0.0
+      - --http.port=8545
+      - --http.api=admin,eth,net
+      - --verbosity=3
+    networks:
+      - tor-network
+    environment:
+      - NODE_NAME=gethrelay-1
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "30303"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped
+
+  # Peer manager sidecar for node 1
+  peer-manager-1:
+    image: alpine:latest
+    container_name: peer-manager-1
+    network_mode: service:gethrelay-1
+    depends_on:
+      gethrelay-1:
+        condition: service_healthy
+    volumes:
+      - ./scripts:/scripts:ro
+    command: ["/scripts/peer-manager.sh"]
+    environment:
+      - GETH_RPC=http://127.0.0.1:8545
+      - NODE_NAME=gethrelay-1
+      - PEER_CHECK_INTERVAL=30
+    restart: unless-stopped
+
+  # Gethrelay node 2
+  gethrelay-2:
+    image: igor53627/gethrelay:latest
+    container_name: gethrelay-2
+    depends_on:
+      tor:
+        condition: service_healthy
+    volumes:
+      - geth-data-2:/data
+    command:
+      - --tor-proxy=tor:9050
+      - --only-onion
+      - --datadir=/data/geth
+      - --v5disc
+      - --maxpeers=50
+      - --http
+      - --http.addr=0.0.0.0
+      - --http.port=8545
+      - --http.api=admin,eth,net
+      - --verbosity=3
+    networks:
+      - tor-network
+    environment:
+      - NODE_NAME=gethrelay-2
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "30303"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped
+
+  peer-manager-2:
+    image: alpine:latest
+    container_name: peer-manager-2
+    network_mode: service:gethrelay-2
+    depends_on:
+      gethrelay-2:
+        condition: service_healthy
+    volumes:
+      - ./scripts:/scripts:ro
+    command: ["/scripts/peer-manager.sh"]
+    environment:
+      - GETH_RPC=http://127.0.0.1:8545
+      - NODE_NAME=gethrelay-2
+      - PEER_CHECK_INTERVAL=30
+    restart: unless-stopped
+
+  # Gethrelay node 3
+  gethrelay-3:
+    image: igor53627/gethrelay:latest
+    container_name: gethrelay-3
+    depends_on:
+      tor:
+        condition: service_healthy
+    volumes:
+      - geth-data-3:/data
+    command:
+      - --tor-proxy=tor:9050
+      - --only-onion
+      - --datadir=/data/geth
+      - --v5disc
+      - --maxpeers=50
+      - --http
+      - --http.addr=0.0.0.0
+      - --http.port=8545
+      - --http.api=admin,eth,net
+      - --verbosity=3
+    networks:
+      - tor-network
+    environment:
+      - NODE_NAME=gethrelay-3
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "30303"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped
+
+  peer-manager-3:
+    image: alpine:latest
+    container_name: peer-manager-3
+    network_mode: service:gethrelay-3
+    depends_on:
+      gethrelay-3:
+        condition: service_healthy
+    volumes:
+      - ./scripts:/scripts:ro
+    command: ["/scripts/peer-manager.sh"]
+    environment:
+      - GETH_RPC=http://127.0.0.1:8545
+      - NODE_NAME=gethrelay-3
+      - PEER_CHECK_INTERVAL=30
+    restart: unless-stopped
+
+volumes:
+  geth-data-1:
+  geth-data-2:
+  geth-data-3:
+  tor-data:
+
+networks:
+  tor-network:
+    driver: bridge

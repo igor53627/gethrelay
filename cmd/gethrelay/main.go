@@ -160,6 +160,21 @@ var (
 			Usage: "API's offered over the HTTP-RPC interface (comma separated)",
 			Value: "eth,net,web3",
 		},
+		// Admin API configuration flags (separate endpoint for p2p management)
+		&cli.BoolFlag{
+			Name:  "admin",
+			Usage: "Enable the admin API server for p2p management",
+		},
+		&cli.StringFlag{
+			Name:  "admin.addr",
+			Usage: "Admin API server listening interface",
+			Value: "127.0.0.1",
+		},
+		&cli.IntFlag{
+			Name:  "admin.port",
+			Usage: "Admin API server listening port",
+			Value: 8546,
+		},
 	}
 
 	app = flags.NewApp("lightweight Ethereum P2P relay node")
@@ -305,6 +320,14 @@ func runRelay(ctx *cli.Context) error {
 			OnlyOnion:     ctx.Bool("only-onion"),
 		},
 		UserIdent: ctx.String("identity"),
+	}
+
+	// Enable admin API server if requested
+	if ctx.Bool("admin") {
+		nodeConfig.HTTPHost = ctx.String("admin.addr")
+		nodeConfig.HTTPPort = ctx.Int("admin.port")
+		nodeConfig.HTTPModules = []string{"admin"}
+		log.Info("Admin API server enabled", "addr", nodeConfig.HTTPHost, "port", nodeConfig.HTTPPort)
 	}
 
 	// Set NAT
