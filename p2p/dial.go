@@ -376,26 +376,53 @@ func (d *dialScheduler) freeDialSlots() int {
 
 // checkDial returns an error if node n should not be dialed.
 func (d *dialScheduler) checkDial(n *enode.Node) error {
+	// Debug logging for .onion nodes
+	if strings.Contains(n.URLv4(), ".onion") {
+		d.log.Info("checkDial for .onion node", "id", n.ID(), "url", n.URLv4())
+	}
+
 	if n.ID() == d.self {
+		if strings.Contains(n.URLv4(), ".onion") {
+			d.log.Info("checkDial failed: errSelf", "id", n.ID())
+		}
 		return errSelf
 	}
 	if n.IPAddr().IsValid() && n.TCP() == 0 {
 		// This check can trigger if a non-TCP node is found
 		// by discovery. If there is no IP, the node is a static
 		// node and the actual endpoint will be resolved later in dialTask.
+		if strings.Contains(n.URLv4(), ".onion") {
+			d.log.Info("checkDial failed: errNoPort", "id", n.ID())
+		}
 		return errNoPort
 	}
 	if _, ok := d.dialing[n.ID()]; ok {
+		if strings.Contains(n.URLv4(), ".onion") {
+			d.log.Info("checkDial failed: errAlreadyDialing", "id", n.ID())
+		}
 		return errAlreadyDialing
 	}
 	if _, ok := d.peers[n.ID()]; ok {
+		if strings.Contains(n.URLv4(), ".onion") {
+			d.log.Info("checkDial failed: errAlreadyConnected", "id", n.ID())
+		}
 		return errAlreadyConnected
 	}
 	if d.netRestrict != nil && !d.netRestrict.ContainsAddr(n.IPAddr()) {
+		if strings.Contains(n.URLv4(), ".onion") {
+			d.log.Info("checkDial failed: errNetRestrict", "id", n.ID())
+		}
 		return errNetRestrict
 	}
 	if d.history.contains(string(n.ID().Bytes())) {
+		if strings.Contains(n.URLv4(), ".onion") {
+			d.log.Info("checkDial failed: errRecentlyDialed", "id", n.ID())
+		}
 		return errRecentlyDialed
+	}
+
+	if strings.Contains(n.URLv4(), ".onion") {
+		d.log.Info("checkDial PASSED for .onion node", "id", n.ID())
 	}
 	return nil
 }
