@@ -121,6 +121,47 @@ var parseNodeTests = []struct {
 			nil, 0, 0,
 		),
 	},
+	// Tor v3 .onion addresses
+	{
+		input: "enode://1dd9d65c4552b5eb43d5ad55a2ee3f56c6cbc1c64a5c8d659f51fcd51bace24351232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439@darfuqg4jxsyjib7mjoyg555bnumyxrlm3surzav2ztuy3cssjshmcad.onion:30303",
+		wantResult: func() *Node {
+			pubkey := hexPubkey("1dd9d65c4552b5eb43d5ad55a2ee3f56c6cbc1c64a5c8d659f51fcd51bace24351232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439")
+			var r enr.Record
+			r.Set(enr.Onion3("darfuqg4jxsyjib7mjoyg555bnumyxrlm3surzav2ztuy3cssjshmcad.onion"))
+			r.Set(enr.TCP(30303))
+			signV4Compat(&r, pubkey)
+			node, _ := New(v4CompatID{}, &r)
+			return node
+		}(),
+	},
+	{
+		input: "enode://1dd9d65c4552b5eb43d5ad55a2ee3f56c6cbc1c64a5c8d659f51fcd51bace24351232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439@darfuqg4jxsyjib7mjoyg555bnumyxrlm3surzav2ztuy3cssjshmcad.onion:30303?discport=30301",
+		wantResult: func() *Node {
+			pubkey := hexPubkey("1dd9d65c4552b5eb43d5ad55a2ee3f56c6cbc1c64a5c8d659f51fcd51bace24351232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439")
+			var r enr.Record
+			r.Set(enr.Onion3("darfuqg4jxsyjib7mjoyg555bnumyxrlm3surzav2ztuy3cssjshmcad.onion"))
+			r.Set(enr.TCP(30303))
+			r.Set(enr.UDP(30301))
+			signV4Compat(&r, pubkey)
+			node, _ := New(v4CompatID{}, &r)
+			return node
+		}(),
+	},
+	// Invalid .onion addresses
+	{
+		input:     "enode://1dd9d65c4552b5eb43d5ad55a2ee3f56c6cbc1c64a5c8d659f51fcd51bace24351232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439@tooshort.onion:30303",
+		wantResult: NewV4(
+			hexPubkey("1dd9d65c4552b5eb43d5ad55a2ee3f56c6cbc1c64a5c8d659f51fcd51bace24351232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439"),
+			nil, 30303, 30303,
+		).WithHostname("tooshort.onion"),
+	},
+	{
+		input:     "enode://1dd9d65c4552b5eb43d5ad55a2ee3f56c6cbc1c64a5c8d659f51fcd51bace24351232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439@darfuqg4jxsyjib7mjoyg555bnumyxrlm3surzav2ztuy3cssjshmcaD.onion:30303",
+		wantResult: NewV4(
+			hexPubkey("1dd9d65c4552b5eb43d5ad55a2ee3f56c6cbc1c64a5c8d659f51fcd51bace24351232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439"),
+			nil, 30303, 30303,
+		).WithHostname("darfuqg4jxsyjib7mjoyg555bnumyxrlm3surzav2ztuy3cssjshmcaD.onion"),
+	},
 	// Invalid URLs
 	{
 		input:     "",
