@@ -401,20 +401,31 @@ func (srv *Server) Start() (err error) {
 	srv.peerOp = make(chan peerOpFunc)
 	srv.peerOpDone = make(chan struct{})
 
+	srv.log.Info("DEBUG: About to call setupLocalNode")
 	if err := srv.setupLocalNode(); err != nil {
+		srv.log.Error("DEBUG: setupLocalNode failed", "err", err)
 		return err
 	}
+	srv.log.Info("DEBUG: setupLocalNode completed successfully")
 	srv.setupPortMapping()
 
 	if srv.ListenAddr != "" {
+		srv.log.Info("DEBUG: About to call setupListening")
 		if err := srv.setupListening(); err != nil {
+			srv.log.Error("DEBUG: setupListening failed", "err", err)
 			return err
 		}
+		srv.log.Info("DEBUG: setupListening completed successfully")
 	}
+	srv.log.Info("DEBUG: About to call setupDiscovery")
 	if err := srv.setupDiscovery(); err != nil {
+		srv.log.Error("DEBUG: setupDiscovery failed", "err", err)
 		return err
 	}
+	srv.log.Info("DEBUG: setupDiscovery completed successfully")
+	srv.log.Info("DEBUG: About to call setupDialScheduler")
 	srv.setupDialScheduler()
+	srv.log.Info("DEBUG: setupDialScheduler completed successfully")
 
 	srv.loopWG.Add(1)
 	go srv.run()
