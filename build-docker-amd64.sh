@@ -3,9 +3,9 @@
 
 set -e
 
-COMMIT_SHA="7270745c6e80b1efb8c772a1f34dee7c01a4b4b7"
-IMAGE_TAG="ghcr.io/igor53627/gethrelay:tor-enr-integration-7270745c6"
-LATEST_TAG="ghcr.io/igor53627/gethrelay:tor-enr-integration-latest"
+COMMIT_SHA="20a970b9c"
+IMAGE_TAG="ghcr.io/igor53627/gethrelay:debug-static-loading"
+LATEST_TAG="ghcr.io/igor53627/gethrelay:tor-clearnet-metrics-latest"
 
 echo "Building Docker image for linux/amd64..."
 echo "Commit: $COMMIT_SHA"

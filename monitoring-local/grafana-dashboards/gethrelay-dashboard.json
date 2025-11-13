@@ -1,0 +1,167 @@
+{
+  "dashboard": {
+    "title": "Gethrelay P2P Metrics",
+    "tags": ["gethrelay", "p2p"],
+    "timezone": "browser",
+    "panels": [
+      {
+        "id": 1,
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+        "type": "timeseries",
+        "title": "Peer Count Over Time",
+        "targets": [
+          {
+            "expr": "p2p_peers",
+            "legendFormat": "{{job}}",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "palette-classic"},
+            "custom": {
+              "lineInterpolation": "linear",
+              "lineWidth": 2,
+              "fillOpacity": 10,
+              "showPoints": "never"
+            },
+            "unit": "short"
+          }
+        }
+      },
+      {
+        "id": 2,
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+        "type": "stat",
+        "title": "Current Peers",
+        "targets": [
+          {
+            "expr": "p2p_peers",
+            "legendFormat": "{{job}}",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "reduceOptions": {
+            "values": false,
+            "calcs": ["lastNotNull"]
+          },
+          "orientation": "auto",
+          "textMode": "value_and_name",
+          "colorMode": "value"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "thresholds"},
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"color": "red", "value": null},
+                {"color": "yellow", "value": 1},
+                {"color": "green", "value": 3}
+              ]
+            },
+            "unit": "short"
+          }
+        }
+      },
+      {
+        "id": 3,
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+        "type": "timeseries",
+        "title": "Dial Success Rate",
+        "targets": [
+          {
+            "expr": "rate(p2p_dials_success[5m])",
+            "legendFormat": "{{job}} - success",
+            "refId": "A"
+          },
+          {
+            "expr": "rate(p2p_dials[5m])",
+            "legendFormat": "{{job}} - total",
+            "refId": "B"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "palette-classic"},
+            "custom": {
+              "lineInterpolation": "linear",
+              "lineWidth": 2,
+              "fillOpacity": 10
+            },
+            "unit": "ops"
+          }
+        }
+      },
+      {
+        "id": 4,
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+        "type": "timeseries",
+        "title": "Network Traffic (Bytes/sec)",
+        "targets": [
+          {
+            "expr": "rate(p2p_ingress[5m])",
+            "legendFormat": "{{job}} - ingress",
+            "refId": "A"
+          },
+          {
+            "expr": "rate(p2p_egress[5m])",
+            "legendFormat": "{{job}} - egress",
+            "refId": "B"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "palette-classic"},
+            "custom": {
+              "lineInterpolation": "linear",
+              "lineWidth": 2,
+              "fillOpacity": 10
+            },
+            "unit": "Bps"
+          }
+        }
+      },
+      {
+        "id": 5,
+        "gridPos": {"h": 8, "w": 24, "x": 0, "y": 16},
+        "type": "timeseries",
+        "title": "Dial Errors by Type",
+        "targets": [
+          {
+            "expr": "rate(p2p_dials_error_connection[5m])",
+            "legendFormat": "{{job}} - connection",
+            "refId": "A"
+          },
+          {
+            "expr": "rate(p2p_dials_error_saturated[5m])",
+            "legendFormat": "{{job}} - saturated",
+            "refId": "B"
+          },
+          {
+            "expr": "rate(p2p_dials_error_other[5m])",
+            "legendFormat": "{{job}} - other",
+            "refId": "C"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "palette-classic"},
+            "custom": {
+              "lineInterpolation": "linear",
+              "lineWidth": 2,
+              "fillOpacity": 10
+            },
+            "unit": "ops"
+          }
+        }
+      }
+    ],
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "refresh": "10s"
+  }
+}

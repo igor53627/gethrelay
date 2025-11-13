@@ -360,16 +360,21 @@ func (s *sharedUDPConn) Close() error {
 // Start starts running the server.
 // Servers can not be re-used after stopping.
 func (srv *Server) Start() (err error) {
+	// Use log.Root() directly since srv.log isn't initialized yet
+	log.Root().Info("DEBUG: Server.Start() CALLED - beginning execution")
 	srv.lock.Lock()
 	defer srv.lock.Unlock()
 	if srv.running {
+		log.Root().Error("DEBUG: Server already running, returning error")
 		return errors.New("server already running")
 	}
 	srv.running = true
+	log.Root().Info("DEBUG: Set srv.running = true, about to initialize srv.log")
 	srv.log = srv.Logger
 	if srv.log == nil {
 		srv.log = log.Root()
 	}
+	srv.log.Info("DEBUG: srv.log initialized successfully")
 	if srv.clock == nil {
 		srv.clock = mclock.System{}
 	}
