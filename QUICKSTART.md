@@ -1,62 +1,83 @@
-# Gethrelay Docker & Kubernetes Quick Start
+# Gethrelay Quick Start
 
-## 1. Build and Push Docker Image
+Get your gethrelay node running in 5 minutes with Docker Compose.
 
-### Option A: Automated (Recommended)
-```bash
-gh workflow run build-gethrelay-image.yaml
-gh run watch
-```
+## Quick Deployment
 
-### Option B: Manual Script
-```bash
-export GITHUB_USERNAME="igor53627"
-export GITHUB_TOKEN="your_github_pat"
-./scripts/build-and-push-image.sh --login -m -p
-```
+### Prerequisites
+- Docker 20.10+
+- Docker Compose 1.29+
+- 8GB RAM minimum
+- 20GB disk space
 
-### Option C: Docker CLI
-```bash
-echo "$GITHUB_TOKEN" | docker login ghcr.io -u igor53627 --password-stdin
-docker buildx build --platform linux/amd64,linux/arm64 \
-  -f Dockerfile.gethrelay \
-  -t ghcr.io/igor53627/gethrelay:latest \
-  --push .
-```
-
-## 2. Make Image Public (One-time)
-
-1. Visit: https://github.com/users/igor53627/packages/container/gethrelay/settings
-2. Change visibility to "Public"
-
-## 3. Deploy to Kubernetes
+### 1. One-Line Start
 
 ```bash
-kubectl apply -f deployment/k8s/namespace.yaml
-kubectl apply -f deployment/k8s/deployments.yaml
-kubectl apply -f deployment/k8s/services.yaml
+cd deployment/docker-compose && chmod +x scripts/*.sh && docker-compose up -d
 ```
 
-## 4. Verify Deployment
+### 2. Verify Deployment
 
 ```bash
-kubectl get pods -n gethrelay -w
-kubectl logs -n gethrelay -l app=gethrelay --tail=50
+# Check all containers are running
+docker-compose ps
+
+# Watch logs
+docker-compose logs -f
 ```
 
-## Troubleshooting
+### 3. Check Peer Connections
 
-### ImagePullBackOff?
-- Make image public (see step 2)
-- Or create imagePullSecret: See [DOCKER_BUILD.md](deployment/DOCKER_BUILD.md#kubernetes-deployment)
+```bash
+# Check peer count
+docker-compose exec gethrelay-1 sh -c '
+  wget -q -O - --post-data='\''{"jsonrpc":"2.0","method":"net_peerCount","params":[],"id":1}'\'' \
+  --header="Content-Type: application/json" \
+  http://127.0.0.1:8545
+'
+```
 
-### Build fails?
-- Check Dockerfile exists: `Dockerfile.gethrelay`
-- Check Tor config: `deployment/tor/torrc`
+## Alternative Deployment Methods
+
+### Local Binary Build
+
+```bash
+# Build gethrelay
+make gethrelay
+
+# Run locally
+./gethrelay --chain mainnet
+```
+
+### Docker Image Build
+
+```bash
+# Build image
+docker build -f Dockerfile -t gethrelay:latest .
+
+# Run container
+docker run -d \
+  -p 30303:30303 \
+  -p 8545:8545 \
+  gethrelay:latest --chain mainnet
+```
 
 ## Documentation
 
-- **Complete setup:** [DOCKER_DEPLOYMENT_SETUP.md](DOCKER_DEPLOYMENT_SETUP.md)
-- **Build details:** [deployment/DOCKER_BUILD.md](deployment/DOCKER_BUILD.md)
-- **Deployment guide:** [deployment/README.md](deployment/README.md)
-- **Build script help:** `./scripts/build-and-push-image.sh --help`
+- **Complete Setup**: [deployment/docker-compose/README.md](deployment/docker-compose/README.md)
+- **5-Minute Guide**: [deployment/docker-compose/QUICKSTART.md](deployment/docker-compose/QUICKSTART.md)
+- **Full Documentation**: [cmd/gethrelay/README.md](cmd/gethrelay/README.md)
+- **Build Scripts**: [scripts/README.md](scripts/README.md)
+
+## Troubleshooting
+
+### Docker Compose Issues?
+See [deployment/docker-compose/README.md](deployment/docker-compose/README.md#troubleshooting)
+
+### Build Fails?
+- Check Go version: `go version` (requires 1.24+)
+- Check dependencies: `go mod download`
+
+### Need Help?
+- Review [cmd/gethrelay/README.md](cmd/gethrelay/README.md)
+- Check issues: https://github.com/igor53627/gethrelay/issues
