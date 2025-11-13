@@ -723,7 +723,8 @@ running:
 				}
 				activePeerGauge.Inc(1)
 				// Track Tor vs clearnet peer connections
-				if strings.Contains(p.RemoteAddr().String(), ".onion") {
+				// Check if the peer's enode contains .onion (indicates Tor connection)
+				if c.node != nil && strings.Contains(c.node.URLv4(), ".onion") {
 					activeTorPeerGauge.Inc(1)
 				} else {
 					activeClearnetPeerGauge.Inc(1)
@@ -745,7 +746,8 @@ running:
 			}
 			activePeerGauge.Dec(1)
 			// Track Tor vs clearnet peer disconnections
-			if strings.Contains(pd.RemoteAddr().String(), ".onion") {
+			// Check if the peer's enode contains .onion (indicates Tor connection)
+			if pd.rw.node != nil && strings.Contains(pd.rw.node.URLv4(), ".onion") {
 				activeTorPeerGauge.Dec(1)
 			} else {
 				activeClearnetPeerGauge.Dec(1)
