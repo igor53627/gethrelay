@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/log"
@@ -84,7 +85,7 @@ func NewTorDialer(socksAddr string, clearnet NodeDialer, preferTor, onlyOnion bo
 // Dial implements the NodeDialer interface.
 //
 // It determines the appropriate transport (Tor vs clearnet) based on:
-//  1. Whether the peer has a .onion address (enr.Onion3 entry)
+//  1. Whether the peer has a .onion address (enr.Onion3 entry or .onion hostname)
 //  2. Whether the peer has a clearnet address (TCP endpoint)
 //  3. The configured operational mode (preferTor, onlyOnion)
 //
@@ -98,15 +99,26 @@ func (t *TorDialer) Dial(ctx context.Context, dest *enode.Node) (net.Conn, error
 		return nil, fmt.Errorf("cannot dial nil peer")
 	}
 
-	// Extract .onion address from ENR
+	// Extract .onion address from ENR or hostname
 	var onion enr.Onion3
-	hasOnion := dest.Load(&onion) == nil && onion != ""
+	var onionAddr string
+	hasOnion := false
+
+	// Check ENR first
+	if dest.Load(&onion) == nil && onion != "" {
+		onionAddr = string(onion)
+		hasOnion = true
+	} else if hostname := dest.Hostname(); hostname != "" && strings.HasSuffix(strings.ToLower(hostname), ".onion") {
+		// Check hostname for .onion address (common for static nodes)
+		onionAddr = hostname
+		hasOnion = true
+	}
 
 	// Check clearnet availability
 	_, hasClearnet := dest.TCPEndpoint()
 
 	// Debug logging
-	log.Info("TorDialer.Dial called", "peer", dest.ID(), "hasOnion", hasOnion, "onion", string(onion), "hasClearnet", hasClearnet, "onlyOnion", t.onlyOnion, "preferTor", t.preferTor)
+	log.Info("TorDialer.Dial called", "peer", dest.ID(), "hasOnion", hasOnion, "onion", onionAddr, "hasClearnet", hasClearnet, "onlyOnion", t.onlyOnion, "preferTor", t.preferTor)
 
 	// Only-onion mode: reject clearnet-only peers
 	if t.onlyOnion && !hasOnion {
@@ -118,9 +130,9 @@ func (t *TorDialer) Dial(ctx context.Context, dest *enode.Node) (net.Conn, error
 	useTor := hasOnion && (t.preferTor || !hasClearnet)
 
 	if useTor {
-		log.Info("TorDialer attempting Tor connection", "peer", dest.ID(), "onion", string(onion))
+		log.Info("TorDialer attempting Tor connection", "peer", dest.ID(), "onion", onionAddr)
 		// Attempt connection via Tor
-		conn, err := t.dialViaTor(ctx, dest, string(onion))
+		conn, err := t.dialViaTor(ctx, dest, onionAddr)
 		if err != nil {
 			log.Info("TorDialer Tor connection failed", "peer", dest.ID(), "error", err)
 			// In only-onion mode, don't fallback to clearnet

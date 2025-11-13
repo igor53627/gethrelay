@@ -33,7 +33,6 @@ import (
 	"github.com/ethereum/go-ethereum/node"
 	"github.com/ethereum/go-ethereum/p2p"
 	"github.com/ethereum/go-ethereum/p2p/enode"
-	"github.com/ethereum/go-ethereum/p2p/enr"
 	"github.com/ethereum/go-ethereum/p2p/nat"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/triedb"
@@ -56,7 +55,7 @@ var (
 		},
 		&cli.StringFlag{
 			Name:  "staticnodes",
-			Usage: "Comma separated list of static nodes (always maintained connections)",
+			Usage: "Comma separated list of static peer nodes (always maintained)",
 		},
 		&cli.IntFlag{
 			Name:  "port",
@@ -141,19 +140,40 @@ var (
 			Name:  "only-onion",
 			Usage: "Restrict to .onion addresses only (requires --tor-proxy)",
 		},
+		// HTTP RPC configuration flags
 		&cli.BoolFlag{
-			Name:  "tor-enabled",
-			Usage: "Enable Tor hidden service for P2P (requires Tor control port access)",
+			Name:  "http",
+			Usage: "Enable the HTTP-RPC server",
 		},
 		&cli.StringFlag{
-			Name:  "tor-control",
-			Usage: "Tor control port address (default: 127.0.0.1:9051)",
-			Value: "127.0.0.1:9051",
+			Name:  "http.addr",
+			Usage: "HTTP-RPC server listening interface",
+			Value: node.DefaultHTTPHost,
+		},
+		&cli.IntFlag{
+			Name:  "http.port",
+			Usage: "HTTP-RPC server listening port",
+			Value: node.DefaultHTTPPort,
 		},
 		&cli.StringFlag{
-			Name:  "tor-cookie",
-			Usage: "Path to Tor control authentication cookie (default: /var/lib/tor/control_auth_cookie)",
-			Value: "/var/lib/tor/control_auth_cookie",
+			Name:  "http.api",
+			Usage: "API's offered over the HTTP-RPC interface (comma separated)",
+			Value: "eth,net,web3",
+		},
+		// Admin API configuration flags (separate endpoint for p2p management)
+		&cli.BoolFlag{
+			Name:  "admin",
+			Usage: "Enable the admin API server for p2p management",
+		},
+		&cli.StringFlag{
+			Name:  "admin.addr",
+			Usage: "Admin API server listening interface",
+			Value: "127.0.0.1",
+		},
+		&cli.IntFlag{
+			Name:  "admin.port",
+			Usage: "Admin API server listening port",
+			Value: 8546,
 		},
 	}
 
@@ -299,16 +319,17 @@ func runRelay(ctx *cli.Context) error {
 			PreferTor:     ctx.Bool("prefer-tor"),
 			OnlyOnion:     ctx.Bool("only-onion"),
 		},
-		Tor: node.TorConfig{
-			Enabled:        ctx.Bool("tor-enabled"),
-			ControlAddress: ctx.String("tor-control"),
-			CookiePath:     ctx.String("tor-cookie"),
-		},
 		UserIdent: ctx.String("identity"),
-		// HTTP RPC is set up manually via setupRPCProxy on port 8545
-		// Don't set HTTPHost/HTTPPort here to avoid port conflict
 	}
-	
+
+	// Enable admin API server if requested
+	if ctx.Bool("admin") {
+		nodeConfig.HTTPHost = ctx.String("admin.addr")
+		nodeConfig.HTTPPort = ctx.Int("admin.port")
+		nodeConfig.HTTPModules = []string{"admin"}
+		log.Info("Admin API server enabled", "addr", nodeConfig.HTTPHost, "port", nodeConfig.HTTPPort)
+	}
+
 	// Set NAT
 	if ctx.IsSet("nat") {
 		natif, err := nat.Parse(ctx.String("nat"))
@@ -336,10 +357,11 @@ func runRelay(ctx *cli.Context) error {
 		nodeConfig.P2P.BootstrapNodes = mustParseBootnodes(urls)
 	}
 
-	// Set static nodes
+	// Set static nodes (for persistent .onion connections)
 	if ctx.IsSet("staticnodes") {
 		urls := splitAndTrim(ctx.String("staticnodes"))
 		nodeConfig.P2P.StaticNodes = mustParseBootnodes(urls)
+		log.Info("Configured static peer nodes", "count", len(nodeConfig.P2P.StaticNodes))
 	}
 
 	stack, err := node.New(nodeConfig)
@@ -348,9 +370,12 @@ func runRelay(ctx *cli.Context) error {
 	}
 	defer stack.Close()
 
-	// Setup RPC proxy before starting the stack
+	// Setup RPC proxy with configured HTTP settings
+	httpAddr := ctx.String("http.addr")
+	httpPort := ctx.Int("http.port")
 	upstreamURL := ctx.String("rpc.upstream")
-	if err := setupRPCProxy(stack, upstreamURL); err != nil {
+
+	if err := setupRPCProxy(stack, upstreamURL, httpAddr, httpPort); err != nil {
 		return fmt.Errorf("failed to setup RPC proxy: %v", err)
 	}
 
@@ -404,13 +429,6 @@ func mustParseBootnodes(urls []string) []*enode.Node {
 			if err != nil {
 				log.Error("Bootstrap URL invalid", "enode", url, "err", err)
 				continue
-			}
-			// Debug: Check if parsed node has Onion3 ENR entry
-			var onion enr.Onion3
-			if node.Load(&onion) == nil && onion != "" {
-				log.Info("mustParseBootnodes: Parsed node has Onion3", "peer", node.ID(), "onion", string(onion), "url", url)
-			} else {
-				log.Info("mustParseBootnodes: Parsed node lacks Onion3", "peer", node.ID(), "url", url)
 			}
 			nodes = append(nodes, node)
 		}

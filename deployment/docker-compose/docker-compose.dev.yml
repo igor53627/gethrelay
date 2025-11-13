@@ -1,0 +1,109 @@
+version: '3.8'
+
+# Development override configuration
+# Usage: docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
+
+services:
+  tor:
+    # More verbose logging for debugging
+    command:
+      - --SocksPort
+      - "0.0.0.0:9050"
+      - --ControlPort
+      - "0.0.0.0:9051"
+      - --CookieAuthentication
+      - "1"
+      - --Log
+      - "debug stdout"
+    # Expose ports for external debugging
+    ports:
+      - "9050:9050"  # SOCKS5 proxy
+      - "9051:9051"  # Control port
+
+  gethrelay-1:
+    # Increased verbosity for development
+    command:
+      - --tor-socks-proxy=tor:9050
+      - --only-onion
+      - --datadir=/data/geth
+      - --v5disc
+      - --maxpeers=50
+      - --http
+      - --http.addr=0.0.0.0  # Allow external access in dev mode
+      - --http.port=8545
+      - --http.api=admin,eth,net,debug,web3
+      - --http.vhosts=*
+      - --http.corsdomain=*
+      - --verbosity=4  # More verbose
+      - --pprof  # Enable profiling
+      - --pprof.addr=0.0.0.0
+      - --pprof.port=6060
+    ports:
+      - "8545:8545"  # HTTP RPC
+      - "6060:6060"  # pprof
+      - "30303:30303"  # P2P
+      - "30303:30303/udp"  # P2P UDP
+
+  gethrelay-2:
+    command:
+      - --tor-socks-proxy=tor:9050
+      - --only-onion
+      - --datadir=/data/geth
+      - --v5disc
+      - --maxpeers=50
+      - --http
+      - --http.addr=0.0.0.0
+      - --http.port=8545
+      - --http.api=admin,eth,net,debug,web3
+      - --http.vhosts=*
+      - --http.corsdomain=*
+      - --verbosity=4
+      - --pprof
+      - --pprof.addr=0.0.0.0
+      - --pprof.port=6060
+    ports:
+      - "8546:8545"  # HTTP RPC (different host port)
+      - "6061:6060"  # pprof
+      - "30304:30303"  # P2P
+      - "30304:30303/udp"
+
+  gethrelay-3:
+    command:
+      - --tor-socks-proxy=tor:9050
+      - --only-onion
+      - --datadir=/data/geth
+      - --v5disc
+      - --maxpeers=50
+      - --http
+      - --http.addr=0.0.0.0
+      - --http.port=8545
+      - --http.api=admin,eth,net,debug,web3
+      - --http.vhosts=*
+      - --http.corsdomain=*
+      - --verbosity=4
+      - --pprof
+      - --pprof.addr=0.0.0.0
+      - --pprof.port=6060
+    ports:
+      - "8547:8545"  # HTTP RPC (different host port)
+      - "6062:6060"  # pprof
+      - "30305:30303"  # P2P
+      - "30305:30303/udp"
+
+  peer-manager-1:
+    environment:
+      - GETH_RPC=http://127.0.0.1:8545
+      - NODE_NAME=gethrelay-1
+      - PEER_CHECK_INTERVAL=15  # More frequent checks in dev
+
+  peer-manager-2:
+    environment:
+      - GETH_RPC=http://127.0.0.1:8545
+      - NODE_NAME=gethrelay-2
+      - PEER_CHECK_INTERVAL=15
+
+  peer-manager-3:
+    environment:
+      - GETH_RPC=http://127.0.0.1:8545
+      - NODE_NAME=gethrelay-3
+      - PEER_CHECK_INTERVAL=15

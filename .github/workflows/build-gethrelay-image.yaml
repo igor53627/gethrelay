@@ -8,7 +8,6 @@ on:
     paths:
       - 'Dockerfile.gethrelay'
       - 'cmd/gethrelay/**'
-      - 'node/**'
       - 'p2p/**'
       - 'go.mod'
       - 'go.sum'
@@ -83,7 +82,6 @@ jobs:
 
       - name: Generate artifact attestation
         uses: actions/attest-build-provenance@v1
-        continue-on-error: true
         with:
           subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           subject-digest: ${{ steps.build-push.outputs.digest }}

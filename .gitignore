@@ -60,3 +60,12 @@ cmd/workload/workload
 # Kubernetes config
 kubeconfig.yaml
 **/kubeconfig*.yaml
+# Claude Collective metrics (generated files)
+.claude-collective/metrics/*.json
+.claude-collective/metrics/*.log
+
+# gethrelay binary (build artifact)
+gethrelay
+
+# Development environment
+.env

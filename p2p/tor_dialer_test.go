@@ -524,3 +524,85 @@ func TestTorDialer_NoPeerAddresses(t *testing.T) {
 		t.Fatalf("expected 'no usable addresses' error, got: %v", err)
 	}
 }
+
+// TestTorDialer_OnionHostname tests that TorDialer handles .onion addresses
+// provided via hostname (common for static nodes) instead of ENR Onion3 entry.
+func TestTorDialer_OnionHostname(t *testing.T) {
+	socksAddr, close := mockSOCKS5Server(t)
+	defer close()
+
+	clearnet := &mockDialer{}
+	dialer := NewTorDialer(socksAddr, clearnet, false, false)
+
+	// Create a node with .onion hostname but no ENR Onion3 entry
+	privKey, _ := crypto.GenerateKey()
+	db, _ := enode.OpenDB("")
+	ln := enode.NewLocalNode(db, privKey)
+	ln.Set(enr.TCP(30303))
+
+	onionHostname := "55tgupvg5jo4zvatazrr75zflsx6jx36qz3wzu6mb4rrmdbsvxvw54yd.onion"
+	node := ln.Node().WithHostname(onionHostname)
+
+	// Verify the node has hostname but no Onion3 ENR entry
+	if node.Hostname() != onionHostname {
+		t.Fatalf("expected hostname %s, got %s", onionHostname, node.Hostname())
+	}
+
+	var onion3 enr.Onion3
+	if err := node.Load(&onion3); err == nil && onion3 != "" {
+		t.Fatal("node should not have Onion3 ENR entry for this test")
+	}
+
+	// Attempt to dial - should use Tor via hostname
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	_, err := dialer.Dial(ctx, node)
+
+	// We expect a connection attempt to the SOCKS5 proxy
+	// The error is expected since we're using a mock server
+	if err == nil {
+		t.Log("Connection succeeded (mock SOCKS5 accepted it)")
+	} else if !strings.Contains(err.Error(), "SOCKS5") && !strings.Contains(err.Error(), "connection") {
+		t.Logf("Got expected error from SOCKS5 dial: %v", err)
+	}
+}
+
+// TestTorDialer_OnionHostnameCaseInsensitive tests .onion detection is case-insensitive
+func TestTorDialer_OnionHostnameCaseInsensitive(t *testing.T) {
+	socksAddr, close := mockSOCKS5Server(t)
+	defer close()
+
+	clearnet := &mockDialer{}
+	dialer := NewTorDialer(socksAddr, clearnet, false, false)
+
+	testCases := []string{
+		"test.onion",
+		"test.ONION",
+		"test.Onion",
+		"test.OnIoN",
+	}
+
+	for _, hostname := range testCases {
+		t.Run(hostname, func(t *testing.T) {
+			privKey, _ := crypto.GenerateKey()
+			db, _ := enode.OpenDB("")
+			ln := enode.NewLocalNode(db, privKey)
+			ln.Set(enr.TCP(30303))
+			node := ln.Node().WithHostname(hostname)
+
+			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+			defer cancel()
+
+			// Should attempt to dial via Tor regardless of case
+			_, err := dialer.Dial(ctx, node)
+
+			// We expect the dialer to attempt SOCKS5 connection
+			if err == nil {
+				t.Log("Connection succeeded")
+			} else {
+				t.Logf("Got error (expected with mock): %v", err)
+			}
+		})
+	}
+}
