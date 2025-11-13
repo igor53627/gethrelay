@@ -554,9 +554,13 @@ func (srv *Server) setupDialScheduler() {
 		}
 	}
 	srv.dialsched = newDialScheduler(config, srv.discmix, srv.SetupConn)
-	for _, n := range srv.StaticNodes {
+	srv.log.Info("Starting to add static nodes to dial scheduler", "count", len(srv.StaticNodes))
+	for i, n := range srv.StaticNodes {
+		srv.log.Info("Adding static node to dial scheduler", "index", i, "url", n.URLv4())
 		srv.dialsched.addStatic(n)
+		srv.log.Info("Static node added to dial scheduler", "index", i, "url", n.URLv4())
 	}
+	srv.log.Info("Finished adding static nodes to dial scheduler")
 }
 
 func (srv *Server) MaxInboundConns() int {
