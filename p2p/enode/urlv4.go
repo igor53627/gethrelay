@@ -181,6 +181,9 @@ func parseComplete(rawurl string) (*Node, error) {
 			}
 			signV4Compat(&r, id)
 			node, _ = New(v4CompatID{}, &r)
+			// CRITICAL: Also set hostname field so Hostname() returns the .onion address
+			// This is needed for dial scheduler's .onion detection logic
+			node = node.WithHostname(hostname)
 		} else {
 			// Non-.onion hostname - use existing logic
 			node = node.WithHostname(hostname)

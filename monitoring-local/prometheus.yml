@@ -1,0 +1,72 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'gethrelay-local-monitoring'
+    environment: 'production'
+
+scrape_configs:
+  # Gethrelay Node 1 - via SSH tunnel localhost:16060
+  - job_name: 'gethrelay-1'
+    metrics_path: '/debug/metrics/prometheus'
+    static_configs:
+      - targets: ['localhost:16060']
+        labels:
+          instance: 'gethrelay-1'
+          node_ip: '108.61.166.134'
+          mode: 'only-onion'
+
+  # Gethrelay Node 2 - via SSH tunnel localhost:26060
+  - job_name: 'gethrelay-2'
+    metrics_path: '/debug/metrics/prometheus'
+    static_configs:
+      - targets: ['localhost:26060']
+        labels:
+          instance: 'gethrelay-2'
+          node_ip: '108.61.166.134'
+          mode: 'only-onion'
+
+  # Gethrelay Node 3 - via SSH tunnel localhost:36060
+  - job_name: 'gethrelay-3'
+    metrics_path: '/debug/metrics/prometheus'
+    static_configs:
+      - targets: ['localhost:36060']
+        labels:
+          instance: 'gethrelay-3'
+          node_ip: '108.61.166.134'
+          mode: 'only-onion'
+
+  # Gethrelay Node 4 - via SSH tunnel localhost:46060
+  - job_name: 'gethrelay-4'
+    metrics_path: '/debug/metrics/prometheus'
+    static_configs:
+      - targets: ['localhost:46060']
+        labels:
+          instance: 'gethrelay-4'
+          node_ip: '108.61.166.134'
+          mode: 'prefer-tor'
+
+  # Gethrelay Node 5 - via SSH tunnel localhost:56060
+  - job_name: 'gethrelay-5'
+    metrics_path: '/debug/metrics/prometheus'
+    static_configs:
+      - targets: ['localhost:56060']
+        labels:
+          instance: 'gethrelay-5'
+          node_ip: '108.61.166.134'
+          mode: 'prefer-tor'
+
+  # Gethrelay Node 6 - via SSH tunnel localhost:61060
+  - job_name: 'gethrelay-6'
+    metrics_path: '/debug/metrics/prometheus'
+    static_configs:
+      - targets: ['localhost:61060']
+        labels:
+          instance: 'gethrelay-6'
+          node_ip: '108.61.166.134'
+          mode: 'prefer-tor'
+
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']

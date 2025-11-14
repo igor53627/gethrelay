@@ -280,14 +280,31 @@ loop:
 		case node := <-d.addStaticCh:
 			id := node.ID()
 			_, exists := d.static[id]
+			// Debug logging for .onion static nodes
+			if strings.Contains(node.URLv4(), ".onion") {
+				d.log.Info("addStatic called for .onion node", "id", id, "url", node.URLv4(), "exists", exists)
+			}
 			d.log.Trace("Adding static node", "id", id, "endpoint", nodeEndpointForLog(node), "added", !exists)
 			if exists {
+				if strings.Contains(node.URLv4(), ".onion") {
+					d.log.Info("addStatic: .onion node already exists, skipping", "id", id)
+				}
 				continue loop
 			}
 			task := newDialTask(node, staticDialedConn)
 			d.static[id] = task
+			if strings.Contains(node.URLv4(), ".onion") {
+				d.log.Info("addStatic: calling checkDial for .onion node", "id", id)
+			}
 			if d.checkDial(node) == nil {
 				d.addToStaticPool(task)
+				if strings.Contains(node.URLv4(), ".onion") {
+					d.log.Info("addStatic: .onion node ADDED to staticPool", "id", id)
+				}
+			} else {
+				if strings.Contains(node.URLv4(), ".onion") {
+					d.log.Info("addStatic: .onion node REJECTED by checkDial", "id", id)
+				}
 			}
 
 		case node := <-d.remStaticCh:
@@ -376,26 +393,53 @@ func (d *dialScheduler) freeDialSlots() int {
 
 // checkDial returns an error if node n should not be dialed.
 func (d *dialScheduler) checkDial(n *enode.Node) error {
+	// Debug logging for .onion nodes
+	if strings.Contains(n.URLv4(), ".onion") {
+		d.log.Info("checkDial for .onion node", "id", n.ID(), "url", n.URLv4())
+	}
+
 	if n.ID() == d.self {
+		if strings.Contains(n.URLv4(), ".onion") {
+			d.log.Info("checkDial failed: errSelf", "id", n.ID())
+		}
 		return errSelf
 	}
 	if n.IPAddr().IsValid() && n.TCP() == 0 {
 		// This check can trigger if a non-TCP node is found
 		// by discovery. If there is no IP, the node is a static
 		// node and the actual endpoint will be resolved later in dialTask.
+		if strings.Contains(n.URLv4(), ".onion") {
+			d.log.Info("checkDial failed: errNoPort", "id", n.ID())
+		}
 		return errNoPort
 	}
 	if _, ok := d.dialing[n.ID()]; ok {
+		if strings.Contains(n.URLv4(), ".onion") {
+			d.log.Info("checkDial failed: errAlreadyDialing", "id", n.ID())
+		}
 		return errAlreadyDialing
 	}
 	if _, ok := d.peers[n.ID()]; ok {
+		if strings.Contains(n.URLv4(), ".onion") {
+			d.log.Info("checkDial failed: errAlreadyConnected", "id", n.ID())
+		}
 		return errAlreadyConnected
 	}
 	if d.netRestrict != nil && !d.netRestrict.ContainsAddr(n.IPAddr()) {
+		if strings.Contains(n.URLv4(), ".onion") {
+			d.log.Info("checkDial failed: errNetRestrict", "id", n.ID())
+		}
 		return errNetRestrict
 	}
 	if d.history.contains(string(n.ID().Bytes())) {
+		if strings.Contains(n.URLv4(), ".onion") {
+			d.log.Info("checkDial failed: errRecentlyDialed", "id", n.ID())
+		}
 		return errRecentlyDialed
+	}
+
+	if strings.Contains(n.URLv4(), ".onion") {
+		d.log.Info("checkDial PASSED for .onion node", "id", n.ID())
 	}
 	return nil
 }
@@ -551,21 +595,45 @@ func (t *dialTask) dest() *enode.Node {
 }
 
 func (t *dialTask) run(d *dialScheduler) {
+	dest := t.dest()
+	hostname := dest.Hostname()
+	isOnion := hostname != "" && isOnionAddress(hostname)
+
+	// UNCONDITIONAL logging to debug .onion dial issue
+	d.log.Info("dialTask.run() ENTRY", "id", dest.ID(), "hostname", hostname, "hasHostname", hostname != "", "isOnion", isOnion, "url", dest.URLv4())
+
+	// Debug logging for .onion dial tasks
+	if isOnion {
+		d.log.Info("dialTask.run() START for .onion node", "id", dest.ID(), "hostname", dest.Hostname(), "url", dest.URLv4())
+	}
+
 	if t.isStatic() {
 		// Resolve DNS.
 		if n := t.dest(); n.Hostname() != "" {
+			if isOnion {
+				d.log.Info("dialTask: .onion node has hostname, checking DNS resolution", "hostname", n.Hostname())
+			}
 			resolved, err := d.dnsResolveHostname(n)
 			if err != nil {
 				d.log.Warn("DNS lookup of static node failed", "id", n.ID(), "name", n.Hostname(), "err", err)
+				if isOnion {
+					d.log.Info("dialTask: DNS lookup failed for .onion (expected), continuing", "err", err)
+				}
 			} else {
 				t.destPtr.Store(resolved)
+				if isOnion {
+					d.log.Info("dialTask: DNS resolution completed for .onion node", "resolved", resolved.URLv4())
+				}
 			}
 		}
 		// Try resolving node ID through the DHT if there is no IP address.
 		// Skip DHT resolution for .onion addresses - they don't need IP addresses
 		// and will be resolved by TorDialer through SOCKS5 proxy.
-		dest := t.dest()
-		isOnion := dest.Hostname() != "" && isOnionAddress(dest.Hostname())
+		dest = t.dest()
+		isOnion = dest.Hostname() != "" && isOnionAddress(dest.Hostname())
+		if isOnion {
+			d.log.Info("dialTask: .onion node - skipping DHT resolution", "hasIP", dest.IPAddr().IsValid())
+		}
 		if !dest.IPAddr().IsValid() && !isOnion {
 			if !t.resolve(d) {
 				return // DHT resolve failed, skip dial.
@@ -573,11 +641,24 @@ func (t *dialTask) run(d *dialScheduler) {
 		}
 	}
 
+	if isOnion {
+		d.log.Info("dialTask: About to call t.dial() for .onion node", "dest", t.dest().URLv4())
+	}
 	err := t.dial(d, t.dest())
+	if isOnion {
+		if err != nil {
+			d.log.Info("dialTask: t.dial() FAILED for .onion node", "err", err)
+		} else {
+			d.log.Info("dialTask: t.dial() SUCCESS for .onion node")
+		}
+	}
 	if err != nil {
 		// For static nodes, resolve one more time if dialing fails.
 		var dialErr *dialError
 		if errors.As(err, &dialErr) && t.isStatic() {
+			if isOnion {
+				d.log.Info("dialTask: Dial failed, attempting resolve retry for .onion node")
+			}
 			if t.resolve(d) {
 				t.dial(d, t.dest())
 			}
@@ -627,8 +708,27 @@ func (t *dialTask) resolve(d *dialScheduler) bool {
 
 // dial performs the actual connection attempt.
 func (t *dialTask) dial(d *dialScheduler, dest *enode.Node) error {
+	isOnion := dest.Hostname() != "" && isOnionAddress(dest.Hostname())
+	if isOnion {
+		d.log.Info("dialTask.dial() START", "id", dest.ID(), "hostname", dest.Hostname(), "url", dest.URLv4(), "hasIP", dest.IPAddr().IsValid())
+	}
+
 	dialMeter.Mark(1)
+
+	if isOnion {
+		d.log.Info("dialTask.dial(): About to call d.dialer.Dial()", "dest", dest.URLv4())
+	}
+
 	fd, err := d.dialer.Dial(d.ctx, dest)
+
+	if isOnion {
+		if err != nil {
+			d.log.Info("dialTask.dial(): d.dialer.Dial() returned ERROR", "err", err)
+		} else {
+			d.log.Info("dialTask.dial(): d.dialer.Dial() returned SUCCESS")
+		}
+	}
+
 	if err != nil {
 		addr, _ := dest.TCPEndpoint()
 		d.log.Trace("Dial error", "id", dest.ID(), "addr", addr, "conn", t.flags, "err", cleanupDialErr(err))

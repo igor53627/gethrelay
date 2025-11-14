@@ -5,8 +5,8 @@
 set -e
 
 GITHUB_TOKEN="${1:-}"
-COMMIT_SHA="7270745c6"
-BRANCH="tor-enr-integration"
+COMMIT_SHA="9130e35ed"
+BRANCH="tor-clearnet-metrics"
 IMAGE_TAG="ghcr.io/igor53627/gethrelay:${BRANCH}-${COMMIT_SHA}"
 IMAGE_TAG_LATEST="ghcr.io/igor53627/gethrelay:${BRANCH}-latest"
 

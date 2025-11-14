@@ -27,6 +27,7 @@ import (
 	"net"
 	"net/netip"
 	"slices"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -359,16 +360,21 @@ func (s *sharedUDPConn) Close() error {
 // Start starts running the server.
 // Servers can not be re-used after stopping.
 func (srv *Server) Start() (err error) {
+	// Use log.Root() directly since srv.log isn't initialized yet
+	log.Root().Info("DEBUG: Server.Start() CALLED - beginning execution")
 	srv.lock.Lock()
 	defer srv.lock.Unlock()
 	if srv.running {
+		log.Root().Error("DEBUG: Server already running, returning error")
 		return errors.New("server already running")
 	}
 	srv.running = true
+	log.Root().Info("DEBUG: Set srv.running = true, about to initialize srv.log")
 	srv.log = srv.Logger
 	if srv.log == nil {
 		srv.log = log.Root()
 	}
+	srv.log.Info("DEBUG: srv.log initialized successfully")
 	if srv.clock == nil {
 		srv.clock = mclock.System{}
 	}
@@ -400,20 +406,31 @@ func (srv *Server) Start() (err error) {
 	srv.peerOp = make(chan peerOpFunc)
 	srv.peerOpDone = make(chan struct{})
 
+	srv.log.Info("DEBUG: About to call setupLocalNode")
 	if err := srv.setupLocalNode(); err != nil {
+		srv.log.Error("DEBUG: setupLocalNode failed", "err", err)
 		return err
 	}
+	srv.log.Info("DEBUG: setupLocalNode completed successfully")
 	srv.setupPortMapping()
 
 	if srv.ListenAddr != "" {
+		srv.log.Info("DEBUG: About to call setupListening")
 		if err := srv.setupListening(); err != nil {
+			srv.log.Error("DEBUG: setupListening failed", "err", err)
 			return err
 		}
+		srv.log.Info("DEBUG: setupListening completed successfully")
 	}
+	srv.log.Info("DEBUG: About to call setupDiscovery")
 	if err := srv.setupDiscovery(); err != nil {
+		srv.log.Error("DEBUG: setupDiscovery failed", "err", err)
 		return err
 	}
+	srv.log.Info("DEBUG: setupDiscovery completed successfully")
+	srv.log.Info("DEBUG: About to call setupDialScheduler")
 	srv.setupDialScheduler()
+	srv.log.Info("DEBUG: setupDialScheduler completed successfully")
 
 	srv.loopWG.Add(1)
 	go srv.run()
@@ -553,9 +570,13 @@ func (srv *Server) setupDialScheduler() {
 		}
 	}
 	srv.dialsched = newDialScheduler(config, srv.discmix, srv.SetupConn)
-	for _, n := range srv.StaticNodes {
+	srv.log.Info("Starting to add static nodes to dial scheduler", "count", len(srv.StaticNodes))
+	for i, n := range srv.StaticNodes {
+		srv.log.Info("Adding static node to dial scheduler", "index", i, "url", n.URLv4())
 		srv.dialsched.addStatic(n)
+		srv.log.Info("Static node added to dial scheduler", "index", i, "url", n.URLv4())
 	}
+	srv.log.Info("Finished adding static nodes to dial scheduler")
 }
 
 func (srv *Server) MaxInboundConns() int {
@@ -721,6 +742,13 @@ running:
 					activeOutboundPeerGauge.Inc(1)
 				}
 				activePeerGauge.Inc(1)
+				// Track Tor vs clearnet peer connections
+				// Check if the peer's enode contains .onion (indicates Tor connection)
+				if c.node != nil && strings.Contains(c.node.URLv4(), ".onion") {
+					activeTorPeerGauge.Inc(1)
+				} else {
+					activeClearnetPeerGauge.Inc(1)
+				}
 			}
 			c.cont <- err
 
@@ -737,6 +765,13 @@ running:
 				activeOutboundPeerGauge.Dec(1)
 			}
 			activePeerGauge.Dec(1)
+			// Track Tor vs clearnet peer disconnections
+			// Check if the peer's enode contains .onion (indicates Tor connection)
+			if pd.rw.node != nil && strings.Contains(pd.rw.node.URLv4(), ".onion") {
+				activeTorPeerGauge.Dec(1)
+			} else {
+				activeClearnetPeerGauge.Dec(1)
+			}
 		}
 	}
 

@@ -270,9 +270,12 @@ func (n *Node) doClose(errs []error) error {
 func (n *Node) openEndpoints() error {
 	// start networking endpoints
 	n.log.Info("Starting peer-to-peer node", "instance", n.server.Name)
+	n.log.Info("DEBUG: About to call n.server.Start()")
 	if err := n.server.Start(); err != nil {
+		n.log.Error("DEBUG: n.server.Start() returned error", "err", err)
 		return convertFileLockError(err)
 	}
+	n.log.Info("DEBUG: n.server.Start() completed successfully")
 
 	// Enable P2P Tor hidden service if configured
 	if n.config.Tor.Enabled && n.server.LocalNode() != nil {
