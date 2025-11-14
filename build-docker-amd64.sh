@@ -3,8 +3,8 @@
 
 set -e
 
-COMMIT_SHA="20a970b9c"
-IMAGE_TAG="ghcr.io/igor53627/gethrelay:debug-static-loading"
+COMMIT_SHA="d043d19d6"
+IMAGE_TAG="ghcr.io/igor53627/gethrelay:onion-hostname-fix"
 LATEST_TAG="ghcr.io/igor53627/gethrelay:tor-clearnet-metrics-latest"
 
 echo "Building Docker image for linux/amd64..."
